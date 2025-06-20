@@ -133,6 +133,14 @@ public
 /out-tsc
 /bazel-out
 
+# Angular cache and build files
+.angular/
+.angular/cache/
+.angular/cache/**/*
+frontend/.angular/
+frontend/.angular/cache/
+frontend/.angular/cache/**/*
+
 # Node
 /node_modules
 npm-debug.log
