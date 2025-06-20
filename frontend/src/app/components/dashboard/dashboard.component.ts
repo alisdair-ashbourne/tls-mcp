@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -28,9 +28,15 @@ import { ApiService, SessionSummary } from '../../services/api.service';
       <mat-card class="status-card">
         <mat-card-header>
           <mat-card-title>
-            <mat-icon>monitor</mat-icon>
+            <mat-icon>monitor_heart</mat-icon>
             System Status
           </mat-card-title>
+          <mat-card-subtitle *ngIf="lastHealthCheck">
+            Last checked: {{ lastHealthCheck | date:'short' }}
+          </mat-card-subtitle>
+          <button mat-icon-button (click)="refreshHealth()" matTooltip="Refresh health status" [disabled]="healthChecking">
+            <mat-icon [class.rotating]="healthChecking">{{ healthChecking ? 'hourglass_empty' : 'refresh' }}</mat-icon>
+          </button>
         </mat-card-header>
         <mat-card-content>
           <div class="status-grid">
@@ -194,6 +200,19 @@ import { ApiService, SessionSummary } from '../../services/api.service';
       color: #4caf50;
     }
 
+    .status-value:not(.healthy) {
+      color: #f44336;
+    }
+
+    .rotating {
+      animation: rotate 1s linear infinite;
+    }
+
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     .actions-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -291,37 +310,122 @@ import { ApiService, SessionSummary } from '../../services/api.service';
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   loading = false;
+  healthChecking = false;
   coordinatorHealthy = false;
   partyAHealthy = false;
   partyBHealthy = false;
   partyCHealthy = false;
+  lastHealthCheck?: Date;
   recentSessions: SessionSummary[] = [];
   totalSessions = 0;
   activeSessions = 0;
   completedSessions = 0;
   failedSessions = 0;
+  private healthCheckInterval?: any;
 
   constructor(private apiService: ApiService) {}
 
   ngOnInit() {
     this.checkSystemHealth();
     this.loadRecentSessions();
+    
+    // Set up periodic health checks every 30 seconds
+    this.healthCheckInterval = setInterval(() => {
+      this.checkSystemHealth();
+    }, 30000);
+  }
+
+  ngOnDestroy() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+    }
   }
 
   async checkSystemHealth() {
+    this.healthChecking = true;
+    console.log('🏥 Starting system health check...');
+    
     try {
+      console.log('🔍 Checking coordinator health...');
       const health = await this.apiService.getHealth().toPromise();
       this.coordinatorHealthy = health?.status === 'healthy';
+      console.log('✅ Coordinator health check:', health);
     } catch (error) {
+      console.error('💥 Coordinator health check failed:', error);
       this.coordinatorHealthy = false;
     }
 
-    // Check party health (simplified for demo)
-    this.partyAHealthy = true;
-    this.partyBHealthy = true;
-    this.partyCHealthy = true;
+    // Check party health by making actual HTTP requests
+    console.log('🔍 Checking party health...');
+    await Promise.all([
+      this.checkPartyHealth('A', 3001),
+      this.checkPartyHealth('B', 3002),
+      this.checkPartyHealth('C', 3003)
+    ]);
+    this.healthChecking = false;
+    this.lastHealthCheck = new Date();
+    console.log('✅ System health check completed');
+  }
+
+  private async checkPartyHealth(partyName: string, port: number): Promise<void> {
+    console.log(`🔍 Checking Party ${partyName} health on port ${port}...`);
+    try {
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const startTime = Date.now();
+      const response = await fetch(`http://localhost:${port}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      const responseTime = Date.now() - startTime;
+      
+      clearTimeout(timeoutId);
+      
+      console.log(`📡 Party ${partyName} response:`, {
+        status: response.status,
+        ok: response.ok,
+        responseTime: `${responseTime}ms`
+      });
+      
+      if (response.ok) {
+        const health = await response.json();
+        const isHealthy = health.status === 'healthy';
+        
+        console.log(`✅ Party ${partyName} health check:`, health);
+        this.setPartyHealth(partyName, isHealthy);
+      } else {
+        console.warn(`❌ Party ${partyName} returned status ${response.status}`);
+        this.setPartyHealth(partyName, false);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`⏰ Party ${partyName} health check timed out`);
+      } else {
+        console.error(`💥 Failed to check Party ${partyName} health:`, error);
+      }
+      this.setPartyHealth(partyName, false);
+    }
+  }
+
+  private setPartyHealth(partyName: string, healthy: boolean): void {
+    switch (partyName) {
+      case 'A':
+        this.partyAHealthy = healthy;
+        break;
+      case 'B':
+        this.partyBHealthy = healthy;
+        break;
+      case 'C':
+        this.partyCHealthy = healthy;
+        break;
+    }
   }
 
   async loadRecentSessions() {
@@ -354,5 +458,11 @@ export class DashboardComponent implements OnInit {
       case 'failed': return 'error';
       default: return 'help';
     }
+  }
+
+  // Method to manually refresh system health
+  async refreshHealth() {
+    if (this.healthChecking) return; // Prevent multiple simultaneous checks
+    await this.checkSystemHealth();
   }
 } 

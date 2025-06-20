@@ -9,6 +9,42 @@ This system implements a (3,3) threshold scheme where:
 - **Coordinator**: A central server that orchestrates the multi-party operations
 - **Threshold**: All three parties must participate for any operation to succeed
 
+## Quick Start
+
+```bash
+# 1. Install dependencies
+npm install
+cd frontend && npm install && cd ..
+cd party-simulator && npm install && cd ..
+
+# 2. Set up environment
+cp env.example .env
+# Edit .env with your MongoDB connection string
+
+# 3. Start all services (in separate terminals)
+# Terminal 1 - Coordinator
+npm run dev
+
+# Terminal 2 - Party A
+cd party-simulator && npm run party-a
+
+# Terminal 3 - Party B  
+cd party-simulator && npm run party-b
+
+# Terminal 4 - Party C
+cd party-simulator && npm run party-c
+
+# Terminal 5 - Frontend
+cd frontend && npm start
+
+# 4. Access the system
+# Frontend: http://localhost:4200
+# Coordinator API: http://localhost:3000
+# Party A: http://localhost:3001
+# Party B: http://localhost:3002
+# Party C: http://localhost:3003
+```
+
 ## Architecture
 
 ```
@@ -137,6 +173,7 @@ The coordinator will be available at `http://localhost:3000`
 
 Open three terminal windows and run:
 
+#### Option A: Using npm scripts (Recommended)
 ```bash
 # Terminal 1 - Party A
 cd party-simulator
@@ -151,6 +188,26 @@ cd party-simulator
 npm run party-c
 ```
 
+#### Option B: Using direct node commands
+```bash
+# Terminal 1 - Party A
+cd party-simulator
+node src/party-simulator.js --party=a --port=3001
+
+# Terminal 2 - Party B
+cd party-simulator
+node src/party-simulator.js --party=b --port=3002
+
+# Terminal 3 - Party C
+cd party-simulator
+node src/party-simulator.js --party=c --port=3003
+```
+
+**Note**: The party simulators include CORS configuration to allow the Angular frontend (running on `localhost:4200`) to make health check requests. Each party simulator will be available at:
+- Party A: `http://localhost:3001`
+- Party B: `http://localhost:3002`
+- Party C: `http://localhost:3003`
+
 ### 3. Start the Frontend
 
 ```bash
@@ -159,6 +216,18 @@ npm start
 ```
 
 The frontend will be available at `http://localhost:4200`
+
+### Frontend Features
+
+The Angular frontend includes:
+- **Real-time Health Monitoring**: Automatic health checks of coordinator and all parties
+- **Dashboard**: System status, recent sessions, and quick actions
+- **Session Management**: Create, view, and manage TLS-MCP sessions
+- **Key Generation**: Multi-step wizard for creating new sessions
+- **Signature Creation**: Create threshold signatures with active sessions
+- **Webhook Logs**: View detailed communication logs between coordinator and parties
+
+**Health Checking**: The dashboard automatically checks the health of all services every 30 seconds and provides manual refresh capability. Health checks include response times and detailed error reporting.
 
 ## API Endpoints
 
@@ -300,8 +369,17 @@ All operations are logged to MongoDB with detailed webhook communication logs.
 
 1. **MongoDB Connection**: Ensure MongoDB Atlas is accessible and credentials are correct
 2. **Port Conflicts**: Ensure ports 3000-3003 are available
-3. **CORS Issues**: Check CORS configuration in coordinator
+3. **CORS Issues**: 
+   - Party simulators include CORS configuration for `localhost:4200`
+   - If frontend shows parties as offline, check that party simulators are running
+   - Verify CORS headers in browser developer tools
+   - Check browser console for CORS errors
 4. **Webhook Failures**: Verify party simulators are running and accessible
+5. **Health Check Failures**: 
+   - Check that all party simulators are running on correct ports
+   - Verify network connectivity between frontend and party simulators
+   - Check browser console for detailed health check logs
+   - Use browser developer tools to inspect network requests
 
 ### Debug Mode
 
