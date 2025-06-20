@@ -46,13 +46,13 @@ const sessionSchema = new mongoose.Schema({
     default: 3
   },
   secret: {
-    type: String,
-    encrypted: true // Will be encrypted in production
+    type: String
+    // Note: Encryption should be handled at the application level
   },
   shares: [{
     partyId: Number,
-    share: String,
-    encrypted: true
+    share: String
+    // Note: Encryption should be handled at the application level
   }],
   commitments: [{
     partyId: Number,

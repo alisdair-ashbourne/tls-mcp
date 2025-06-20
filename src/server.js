@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,7 +8,6 @@ const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
 
 const sessionService = require('./services/sessionService');
-const webhookService = require('./services/webhookService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

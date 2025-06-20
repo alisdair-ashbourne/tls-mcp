@@ -21,7 +21,6 @@ import { ApiService, Session, WebhookLog } from '../../services/api.service';
   standalone: true,
   imports: [
     CommonModule,
-    ActivatedRoute,
     RouterLink,
     MatCardModule,
     MatButtonModule,

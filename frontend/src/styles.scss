@@ -1,0 +1,144 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Global styles */
+html, body { 
+  height: 100%; 
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+body { 
+  margin: 0; 
+  font-family: Roboto, "Helvetica Neue", sans-serif; 
+  background-color: #fafafa;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Utility classes */
+.full-width {
+  width: 100%;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-16 {
+  margin-top: 16px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+.p-16 {
+  padding: 16px;
+}
+
+/* Card styles */
+.mat-card {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Button styles */
+.mat-raised-button {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Form styles */
+.mat-form-field {
+  width: 100%;
+}
+
+/* Table styles */
+.mat-table {
+  width: 100%;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+/* Error styles */
+.error-message {
+  color: #f44336;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+/* Success styles */
+.success-message {
+  color: #4caf50;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+/* Status badges */
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.active {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-badge.completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.failed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Progress bars */
+.mat-progress-bar.mat-progress-bar-success .mat-progress-bar-fill::after {
+  background-color: #4caf50;
+}
+
+.mat-progress-bar.mat-progress-bar-primary .mat-progress-bar-fill::after {
+  background-color: #1976d2;
+}
+
+.mat-progress-bar.mat-progress-bar-accent .mat-progress-bar-fill::after {
+  background-color: #ff4081;
+}
+
+.mat-progress-bar.mat-progress-bar-warn .mat-progress-bar-fill::after {
+  background-color: #ff9800;
+} 

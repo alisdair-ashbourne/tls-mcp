@@ -20,7 +20,7 @@ class TLSMCP {
     return BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639747');
   }
 
-  /**
+  /**bnpmnpm 
    * Generate random polynomial coefficients for Shamir's Secret Sharing
    */
   generatePolynomial(secret) {

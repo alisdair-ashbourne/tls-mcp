@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface Party {
@@ -11,6 +11,10 @@ export interface Session {
   sessionId: string;
   status: string;
   operation: string;
+  messageHash?: string;
+  signature?: string;
+  finalSignature?: any;
+  secret?: string;
   parties: Array<{
     partyId: number;
     partyName: string;
