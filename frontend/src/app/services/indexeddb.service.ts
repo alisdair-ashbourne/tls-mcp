@@ -124,4 +124,67 @@ export class IndexedDBService {
     const sessions = await this.db!.count('sessions');
     return { shares, sessions };
   }
+
+  /**
+   * Debug method to view all data in IndexedDB
+   * This can be called from browser console: indexedDBService.debugViewAllData()
+   */
+  async debugViewAllData(): Promise<any> {
+    try {
+      if (!this.db) await this.initDB();
+      
+      const sessions = await this.db!.getAll('sessions');
+      const shares = await this.db!.getAll('shares');
+      
+      const debugData = {
+        sessions: { count: sessions.length, data: sessions },
+        shares: { count: shares.length, data: shares },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🔍 IndexedDB Debug Data:', debugData);
+      return debugData;
+    } catch (error) {
+      console.error('❌ Error accessing IndexedDB:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Debug method to clear all data in IndexedDB
+   * This can be called from browser console: indexedDBService.debugClearAllData()
+   */
+  async debugClearAllData(): Promise<void> {
+    try {
+      if (!this.db) await this.initDB();
+      
+      await this.db!.clear('sessions');
+      await this.db!.clear('shares');
+      
+      console.log('🗑️ IndexedDB data cleared successfully');
+    } catch (error) {
+      console.error('❌ Error clearing IndexedDB:', error);
+      throw error;
+    }
+  }
+
+  private async getAllFromStore(transaction: IDBTransaction, storeName: string): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll();
+      
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private async clearStore(transaction: IDBTransaction, storeName: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.clear();
+      
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
 } 

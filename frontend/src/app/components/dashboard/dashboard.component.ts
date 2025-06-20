@@ -7,6 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatListModule } from '@angular/material/list';
 import { RouterLink } from '@angular/router';
 import { ApiService, SessionSummary } from '../../services/api.service';
+import { MatTabsModule } from '@angular/material/tabs';
 
 @Component({
   selector: 'app-dashboard',
@@ -17,6 +18,7 @@ import { ApiService, SessionSummary } from '../../services/api.service';
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    MatTabsModule,
     MatListModule,
     RouterLink
   ],
@@ -79,18 +81,60 @@ import { ApiService, SessionSummary } from '../../services/api.service';
         <mat-card-content>
           <div class="actions-grid">
             <button mat-raised-button color="primary" routerLink="/key-generation">
-              <mat-icon>vpn_key</mat-icon>
-              Generate Key
+              <mat-icon>add</mat-icon>
+              New Session
             </button>
-            <button mat-raised-button color="accent" routerLink="/signature">
-              <mat-icon>edit</mat-icon>
-              Create Signature
-            </button>
-            <button mat-raised-button routerLink="/sessions">
+            <button mat-raised-button color="accent" routerLink="/sessions">
               <mat-icon>list</mat-icon>
               View Sessions
             </button>
+            <button mat-raised-button color="warn" routerLink="/signature">
+              <mat-icon>edit</mat-icon>
+              Create Signature
+            </button>
+            <button mat-raised-button (click)="loadIndexedDBData()" [disabled]="showDebugInfo">
+              <mat-icon>bug_report</mat-icon>
+              Load IndexedDB Data
+            </button>
+            <button mat-raised-button (click)="showDebugInfo = !showDebugInfo">
+              <mat-icon>{{ showDebugInfo ? 'visibility_off' : 'visibility' }}</mat-icon>
+              {{ showDebugInfo ? 'Hide' : 'Show' }} Debug Info
+            </button>
           </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Debug Information -->
+      <mat-card *ngIf="showDebugInfo" class="debug-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>bug_report</mat-icon>
+            Debug Information
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div *ngIf="indexedDBError" class="error-message">
+            <mat-icon>error</mat-icon>
+            {{ indexedDBError }}
+          </div>
+          
+          <mat-tab-group>
+            <mat-tab label="Sessions">
+              <div class="debug-content">
+                <h4>Sessions ({{ indexedDBData.sessions?.length || 0 }})</h4>
+                <pre *ngIf="indexedDBData.sessions?.length">{{ indexedDBData.sessions | json }}</pre>
+                <p *ngIf="!indexedDBData.sessions?.length">No sessions found</p>
+              </div>
+            </mat-tab>
+            
+            <mat-tab label="Shares">
+              <div class="debug-content">
+                <h4>Shares ({{ indexedDBData.shares?.length || 0 }})</h4>
+                <pre *ngIf="indexedDBData.shares?.length">{{ indexedDBData.shares | json }}</pre>
+                <p *ngIf="!indexedDBData.shares?.length">No shares found</p>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
         </mat-card-content>
       </mat-card>
 
@@ -308,6 +352,49 @@ import { ApiService, SessionSummary } from '../../services/api.service';
       align-items: center;
       gap: 8px;
     }
+
+    .debug-card {
+      margin-top: 20px;
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+
+    .debug-content {
+      padding: 16px;
+      background-color: white;
+      border-radius: 4px;
+      margin: 8px 0;
+    }
+
+    .debug-content pre {
+      background-color: #f8f8f8;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.4;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .error-message {
+      color: #d32f2f;
+      background-color: #ffebee;
+      border: 1px solid #ffcdd2;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .debug-content h4 {
+      margin: 0 0 12px 0;
+      color: #333;
+      font-weight: 500;
+    }
   `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
@@ -324,6 +411,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   completedSessions = 0;
   failedSessions = 0;
   private healthCheckInterval?: any;
+  
+  // Debug properties
+  showDebugInfo = false;
+  indexedDBData: any = {};
+  indexedDBError?: string;
 
   constructor(private apiService: ApiService) {}
 
@@ -464,5 +556,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async refreshHealth() {
     if (this.healthChecking) return; // Prevent multiple simultaneous checks
     await this.checkSystemHealth();
+  }
+
+  // Debug method to load IndexedDB data
+  async loadIndexedDBData() {
+    try {
+      this.indexedDBError = undefined;
+      
+      // Access IndexedDB directly
+      const dbName = 'tls-mcp-db';
+      const dbVersion = 1;
+      
+      const request = indexedDB.open(dbName, dbVersion);
+      
+      request.onerror = (event) => {
+        this.indexedDBError = 'Failed to open IndexedDB';
+        console.error('IndexedDB error:', event);
+      };
+      
+      request.onsuccess = (event: any) => {
+        const db = event.target.result;
+        const transaction = db.transaction(['sessions', 'shares'], 'readonly');
+        
+        const sessionsStore = transaction.objectStore('sessions');
+        const sharesStore = transaction.objectStore('shares');
+        
+        const sessionsRequest = sessionsStore.getAll();
+        const sharesRequest = sharesStore.getAll();
+        
+        sessionsRequest.onsuccess = () => {
+          this.indexedDBData.sessions = sessionsRequest.result;
+        };
+        
+        sharesRequest.onsuccess = () => {
+          this.indexedDBData.shares = sharesRequest.result;
+        };
+        
+        transaction.oncomplete = () => {
+          console.log('IndexedDB data loaded:', this.indexedDBData);
+        };
+        
+        transaction.onerror = () => {
+          this.indexedDBError = 'Failed to read IndexedDB data';
+        };
+      };
+      
+    } catch (error) {
+      this.indexedDBError = `Error accessing IndexedDB: ${error}`;
+      console.error('IndexedDB access error:', error);
+    }
   }
 } 

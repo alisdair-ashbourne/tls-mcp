@@ -202,6 +202,8 @@ app.post('/api/webhook/:sessionId/:partyId', async (req, res) => {
     const { sessionId, partyId } = req.params;
     const { event, payload } = req.body;
     
+    console.log(`📡 Received webhook: ${event} from Party ${partyId} for Session ${sessionId}`);
+    
     if (!event || !payload) {
       return res.status(400).json({
         error: 'Event and payload are required'
@@ -209,23 +211,41 @@ app.post('/api/webhook/:sessionId/:partyId', async (req, res) => {
     }
 
     const result = await sessionService.handlePartyResponse(
-      parseInt(partyId),
       sessionId,
+      parseInt(partyId),
       event,
-      payload,
-      req.headers
+      payload
     );
+    
+    console.log(`✅ Webhook processed successfully for Session ${sessionId}`);
     
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('Error handling webhook:', error);
-    res.status(500).json({
-      error: 'Failed to handle webhook',
-      message: error.message
-    });
+    console.error(`❌ Error handling webhook for Session ${req.params.sessionId}:`, error);
+    
+    // Provide more specific error messages
+    if (error.message === 'Session not found') {
+      res.status(404).json({
+        error: 'Session not found',
+        message: `Session ${req.params.sessionId} does not exist or has expired`,
+        sessionId: req.params.sessionId
+      });
+    } else if (error.message.includes('Party not found')) {
+      res.status(404).json({
+        error: 'Party not found',
+        message: error.message,
+        sessionId: req.params.sessionId,
+        partyId: req.params.partyId
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to handle webhook',
+        message: error.message
+      });
+    }
   }
 });
 

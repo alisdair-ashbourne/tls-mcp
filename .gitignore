@@ -246,7 +246,6 @@ party-simulator/data/
 party-simulator/logs/
 
 # Session data (if stored locally)
-sessions/
 webhooks/
 
 # Crypto keys and shares

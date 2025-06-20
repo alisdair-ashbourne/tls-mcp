@@ -257,20 +257,28 @@ class SessionService {
    * Handle party response (share confirmation, signature component, etc.)
    */
   async handlePartyResponse(sessionId, partyId, event, payload) {
+    console.log(`🔍 Looking up session: ${sessionId}`);
     const session = await Session.findOne({ sessionId });
     if (!session) {
+      console.error(`❌ Session not found: ${sessionId}`);
       throw new Error('Session not found');
     }
 
+    console.log(`✅ Found session: ${sessionId}, status: ${session.status}`);
+    
     const party = session.getPartyById(partyId);
     if (!party) {
+      console.error(`❌ Party ${partyId} not found in session ${sessionId}`);
       throw new Error('Party not found in session');
     }
+
+    console.log(`✅ Found party: ${partyId}, current status: ${party.status}`);
 
     switch (event) {
       case 'share_confirmed':
         party.status = 'ready';
         party.share = payload.share;
+        console.log(`📝 Updated party ${partyId} status to 'ready'`);
         break;
 
       case 'signature_component':
@@ -280,21 +288,26 @@ class SessionService {
           messageHash: payload.messageHash,
           timestamp: new Date()
         });
+        console.log(`📝 Added signature component from party ${partyId}`);
         break;
 
       case 'heartbeat_response':
         party.status = 'connected';
         party.lastSeen = new Date();
+        console.log(`💓 Updated party ${partyId} heartbeat`);
         break;
 
       default:
+        console.warn(`⚠️ Unknown event: ${event}`);
         throw new Error(`Unknown event: ${event}`);
     }
 
     await session.save();
+    console.log(`💾 Session ${sessionId} saved successfully`);
 
     // Check if we can proceed with the operation
     if (session.canProceed()) {
+      console.log(`🚀 Session ${sessionId} can proceed with operation`);
       await this.processSession(session);
     }
 
