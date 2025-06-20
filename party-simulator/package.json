@@ -1,0 +1,26 @@
+{
+  "name": "tls-mcp-party-simulator",
+  "version": "1.0.0",
+  "description": "TLS-MCP Party Simulator for Testing",
+  "main": "src/party-simulator.js",
+  "scripts": {
+    "start": "node src/party-simulator.js",
+    "party-a": "node src/party-simulator.js --party=a --port=3001",
+    "party-b": "node src/party-simulator.js --party=b --port=3002",
+    "party-c": "node src/party-simulator.js --party=c --port=3003"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.2",
+    "crypto": "^1.0.1",
+    "uuid": "^9.0.1"
+  },
+  "keywords": [
+    "tls-mcp",
+    "party",
+    "simulator",
+    "testing"
+  ],
+  "author": "TLS-MCP Team",
+  "license": "MIT"
+} 
