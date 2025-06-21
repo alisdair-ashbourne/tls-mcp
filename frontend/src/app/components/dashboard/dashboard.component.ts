@@ -8,6 +8,7 @@ import { MatListModule } from '@angular/material/list';
 import { RouterLink } from '@angular/router';
 import { ApiService, SessionSummary } from '../../services/api.service';
 import { MatTabsModule } from '@angular/material/tabs';
+import { IndexedDBService } from '../../services/indexeddb.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -416,12 +417,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showDebugInfo = false;
   indexedDBData: any = {};
   indexedDBError?: string;
+  serverData: any = {};
+  serverError?: string;
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private indexedDBService: IndexedDBService
+  ) {}
 
   ngOnInit() {
     this.checkSystemHealth();
     this.loadRecentSessions();
+    this.loadAllDebugData(); // Load both server and IndexedDB data
     
     // Set up periodic health checks every 30 seconds
     this.healthCheckInterval = setInterval(() => {
@@ -563,47 +570,105 @@ export class DashboardComponent implements OnInit, OnDestroy {
     try {
       this.indexedDBError = undefined;
       
-      // Access IndexedDB directly
-      const dbName = 'tls-mcp-db';
-      const dbVersion = 1;
+      // First validate the database
+      const isValid = await this.indexedDBService.validateDatabase();
       
-      const request = indexedDB.open(dbName, dbVersion);
+      if (!isValid) {
+        console.log('⚠️ Database validation failed, resetting...');
+        await this.indexedDBService.resetDatabase();
+      }
       
-      request.onerror = (event) => {
-        this.indexedDBError = 'Failed to open IndexedDB';
-        console.error('IndexedDB error:', event);
-      };
-      
-      request.onsuccess = (event: any) => {
-        const db = event.target.result;
-        const transaction = db.transaction(['sessions', 'shares'], 'readonly');
-        
-        const sessionsStore = transaction.objectStore('sessions');
-        const sharesStore = transaction.objectStore('shares');
-        
-        const sessionsRequest = sessionsStore.getAll();
-        const sharesRequest = sharesStore.getAll();
-        
-        sessionsRequest.onsuccess = () => {
-          this.indexedDBData.sessions = sessionsRequest.result;
-        };
-        
-        sharesRequest.onsuccess = () => {
-          this.indexedDBData.shares = sharesRequest.result;
-        };
-        
-        transaction.oncomplete = () => {
-          console.log('IndexedDB data loaded:', this.indexedDBData);
-        };
-        
-        transaction.onerror = () => {
-          this.indexedDBError = 'Failed to read IndexedDB data';
-        };
-      };
+      // Use the IndexedDB service instead of direct access
+      const debugData = await this.indexedDBService.debugViewAllData();
+      this.indexedDBData = debugData;
       
     } catch (error) {
       this.indexedDBError = `Error accessing IndexedDB: ${error}`;
       console.error('IndexedDB access error:', error);
+      
+      // If there's still an error, try resetting the database
+      try {
+        console.log('🔄 Attempting database reset due to error...');
+        await this.indexedDBService.resetDatabase();
+        const debugData = await this.indexedDBService.debugViewAllData();
+        this.indexedDBData = debugData;
+        this.indexedDBError = undefined;
+      } catch (resetError) {
+        this.indexedDBError = `Database reset failed: ${resetError}`;
+        console.error('Database reset error:', resetError);
+      }
     }
+  }
+
+  // Debug method to load server data
+  async loadServerData() {
+    try {
+      this.serverError = undefined;
+      
+      // Get sessions from server
+      const sessionsResponse = await this.apiService.getSessions(undefined, 50).toPromise();
+      
+      this.serverData = {
+        sessions: {
+          count: sessionsResponse?.sessions?.length || 0,
+          data: sessionsResponse?.sessions || []
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🔍 Server Data:', this.serverData);
+      
+    } catch (error) {
+      this.serverError = `Error loading server data: ${error}`;
+      console.error('Server data error:', error);
+    }
+  }
+
+  // Debug method to sync server data to IndexedDB
+  async syncServerToIndexedDB() {
+    try {
+      console.log('🔄 Syncing server data to IndexedDB...');
+      
+      // Load server data first
+      await this.loadServerData();
+      
+      if (this.serverData.sessions?.data) {
+        // Clear existing IndexedDB data
+        await this.indexedDBService.debugClearAllData();
+        
+        // Store each session in IndexedDB
+        for (const session of this.serverData.sessions.data) {
+          await this.indexedDBService.storeSession({
+            sessionId: session.sessionId,
+            status: session.status,
+            operation: session.operation,
+            metadata: {
+              parties: session.parties,
+              readyParties: session.readyParties,
+              createdAt: session.createdAt,
+              expiresAt: session.expiresAt
+            },
+            createdAt: new Date(session.createdAt),
+            updatedAt: new Date()
+          });
+        }
+        
+        console.log(`✅ Synced ${this.serverData.sessions.data.length} sessions to IndexedDB`);
+        
+        // Reload IndexedDB data
+        await this.loadIndexedDBData();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error syncing server data to IndexedDB:', error);
+    }
+  }
+
+  // Debug method to load all data (both server and IndexedDB)
+  async loadAllDebugData() {
+    await Promise.all([
+      this.loadServerData(),
+      this.loadIndexedDBData()
+    ]);
   }
 } 

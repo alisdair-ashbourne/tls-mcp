@@ -183,21 +183,36 @@ class SessionService {
    * Create a threshold signature
    */
   async createSignature(sessionId, message) {
+    console.log(`🔍 Creating signature for session: ${sessionId}, message: ${message}`);
+    
     const session = await Session.findOne({ sessionId });
     if (!session) {
+      console.error(`❌ Session not found: ${sessionId}`);
       throw new Error('Session not found');
     }
 
+    console.log(`✅ Found session: ${sessionId}, status: ${session.status}, operation: ${session.operation}`);
+
     if (session.status !== 'active') {
-      throw new Error('Session is not in active state');
+      console.error(`❌ Session is not in active state. Current status: ${session.status}`);
+      throw new Error(`Session is not in active state. Current status: ${session.status}`);
     }
+
+    if (!session.shares || session.shares.length === 0) {
+      console.error(`❌ No shares found for session: ${sessionId}`);
+      throw new Error('No shares found for session. Key generation must be completed first.');
+    }
+
+    console.log(`📦 Found ${session.shares.length} shares for session: ${sessionId}`);
 
     try {
       // Request signature components from all parties
+      console.log(`📡 Requesting signature components from parties...`);
       await webhookService.requestSignature(sessionId, session.parties, message);
 
       // For PoC, we'll generate signature components using stored shares
       // In production, parties would compute and send their components
+      console.log(`🔐 Generating signature components using stored shares...`);
       const shares = session.shares.map(share => ({
         partyId: share.partyId,
         share: share.share,
@@ -205,27 +220,43 @@ class SessionService {
       }));
 
       const signatureComponents = this.tlsMCP.generateThresholdSignatureComponents(message, shares);
-
-      // Store signature components
-      session.signatureComponents = signatureComponents.map(comp => ({
-        partyId: comp.partyId,
-        component: comp.component,
-        messageHash: comp.messageHash,
-        timestamp: new Date()
-      }));
+      console.log(`✅ Generated ${signatureComponents.length} signature components`);
 
       // Combine signature components
+      console.log(`🔗 Combining signature components...`);
       const finalSignature = this.tlsMCP.combineThresholdSignature(signatureComponents, message);
+      console.log(`✅ Combined signature components successfully`);
 
-      session.finalSignature = {
-        signature: finalSignature.signature,
-        messageHash: finalSignature.messageHash,
-        participants: finalSignature.participants,
-        timestamp: new Date()
+      // Use atomic update to avoid version conflicts
+      const updateData = {
+        signatureComponents: signatureComponents.map(comp => ({
+          partyId: comp.partyId,
+          component: comp.component,
+          messageHash: comp.messageHash,
+          timestamp: new Date()
+        })),
+        finalSignature: {
+          signature: finalSignature.signature,
+          messageHash: finalSignature.messageHash,
+          participants: finalSignature.participants,
+          timestamp: new Date()
+        },
+        status: 'completed',
+        updatedAt: new Date()
       };
 
-      session.status = 'completed';
-      await session.save();
+      console.log(`💾 Updating session ${sessionId} with atomic update...`);
+      const updateResult = await Session.findOneAndUpdate(
+        { sessionId },
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!updateResult) {
+        throw new Error('Failed to update session');
+      }
+
+      console.log(`✅ Session ${sessionId} updated successfully with completed status`);
 
       await webhookService.notifySessionComplete(sessionId, session.parties, {
         success: true,
@@ -234,6 +265,8 @@ class SessionService {
         message,
         participants: finalSignature.participants
       });
+
+      console.log(`✅ Signature creation completed for session: ${sessionId}`);
 
       return {
         sessionId,
@@ -245,8 +278,17 @@ class SessionService {
       };
 
     } catch (error) {
-      session.status = 'failed';
-      await session.save();
+      console.error(`❌ Error creating signature for session ${sessionId}:`, error);
+      
+      // Use atomic update to set failed status
+      try {
+        await Session.findOneAndUpdate(
+          { sessionId },
+          { status: 'failed', updatedAt: new Date() }
+        );
+      } catch (updateError) {
+        console.error(`❌ Failed to update session status to failed:`, updateError);
+      }
       
       await webhookService.notifySessionFailed(sessionId, session.parties, error);
       throw error;

@@ -175,20 +175,27 @@ app.post('/api/sessions/:sessionId/sign', async (req, res) => {
     const { sessionId } = req.params;
     const { message } = req.body;
     
+    console.log(`📝 Signature request received for session: ${sessionId}`);
+    console.log(`📄 Message: ${message}`);
+    
     if (!message) {
+      console.error('❌ Message is required');
       return res.status(400).json({
         error: 'Message is required'
       });
     }
 
+    console.log(`🔍 Calling sessionService.createSignature for session: ${sessionId}`);
     const result = await sessionService.createSignature(sessionId, message);
+    console.log(`✅ Signature creation successful for session: ${sessionId}`);
     
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('Error creating signature:', error);
+    console.error('❌ Error creating signature:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       error: 'Failed to create signature',
       message: error.message

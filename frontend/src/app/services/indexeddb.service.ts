@@ -30,27 +30,98 @@ export class IndexedDBService {
   private db: IDBPDatabase | null = null;
 
   async initDB(): Promise<void> {
-    this.db = await openDB(this.dbName, this.dbVersion, {
-      upgrade(db) {
-        // Create shares store
-        if (!db.objectStoreNames.contains('shares')) {
-          const sharesStore = db.createObjectStore('shares', { keyPath: 'id', autoIncrement: true });
-          sharesStore.createIndex('sessionId', 'sessionId', { unique: false });
-          sharesStore.createIndex('partyId', 'partyId', { unique: false });
-          sharesStore.createIndex('sessionParty', ['sessionId', 'partyId'], { unique: true });
-        }
+    try {
+      this.db = await openDB(this.dbName, this.dbVersion, {
+        upgrade(db, oldVersion, newVersion) {
+          console.log(`🔄 Upgrading IndexedDB from version ${oldVersion} to ${newVersion}`);
+          
+          // Create shares store
+          if (!db.objectStoreNames.contains('shares')) {
+            console.log('📦 Creating shares object store...');
+            const sharesStore = db.createObjectStore('shares', { keyPath: 'id', autoIncrement: true });
+            sharesStore.createIndex('sessionId', 'sessionId', { unique: false });
+            sharesStore.createIndex('partyId', 'partyId', { unique: false });
+            sharesStore.createIndex('sessionParty', ['sessionId', 'partyId'], { unique: true });
+          }
 
-        // Create sessions store
-        if (!db.objectStoreNames.contains('sessions')) {
-          const sessionsStore = db.createObjectStore('sessions', { keyPath: 'id', autoIncrement: true });
-          sessionsStore.createIndex('sessionId', 'sessionId', { unique: true });
-          sessionsStore.createIndex('status', 'status', { unique: false });
+          // Create sessions store
+          if (!db.objectStoreNames.contains('sessions')) {
+            console.log('📋 Creating sessions object store...');
+            const sessionsStore = db.createObjectStore('sessions', { keyPath: 'id', autoIncrement: true });
+            sessionsStore.createIndex('sessionId', 'sessionId', { unique: true });
+            sessionsStore.createIndex('status', 'status', { unique: false });
+          }
+        },
+        blocked() {
+          console.warn('⚠️ IndexedDB upgrade blocked - another tab may have the database open');
+        },
+        blocking() {
+          console.warn('⚠️ IndexedDB upgrade blocking - this tab is preventing another tab from upgrading');
         }
-      }
-    });
+      });
+      
+      console.log('✅ IndexedDB initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize IndexedDB:', error);
+      throw error;
+    }
   }
 
-  async storeShare(shareData: Omit<ShareData, 'id'>): Promise<number> {
+  /**
+   * Reset the database by deleting it and recreating it
+   * This is useful when the database is in an inconsistent state
+   */
+  async resetDatabase(): Promise<void> {
+    try {
+      console.log('🔄 Resetting IndexedDB...');
+      
+      // Close existing connection
+      if (this.db) {
+        this.db.close();
+        this.db = null;
+      }
+      
+      // Delete the database
+      await indexedDB.deleteDatabase(this.dbName);
+      console.log('🗑️ Database deleted');
+      
+      // Wait a moment for the deletion to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Reinitialize the database
+      await this.initDB();
+      console.log('✅ Database reset completed');
+    } catch (error) {
+      console.error('❌ Failed to reset database:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if the database has the required object stores
+   */
+  async validateDatabase(): Promise<boolean> {
+    try {
+      if (!this.db) await this.initDB();
+      
+      const storeNames = this.db!.objectStoreNames;
+      const hasShares = storeNames.contains('shares');
+      const hasSessions = storeNames.contains('sessions');
+      
+      console.log('🔍 Database validation:', {
+        hasShares,
+        hasSessions,
+        storeNames: Array.from(storeNames)
+      });
+      
+      return hasShares && hasSessions;
+    } catch (error) {
+      console.error('❌ Database validation failed:', error);
+      return false;
+    }
+  }
+
+  async storeShare(shareData: Omit<ShareData, 'id'>): Promise<any> {
     if (!this.db) await this.initDB();
     return await this.db!.add('shares', shareData);
   }
@@ -78,7 +149,7 @@ export class IndexedDBService {
     }
   }
 
-  async storeSession(sessionData: Omit<SessionData, 'id'>): Promise<number> {
+  async storeSession(sessionData: Omit<SessionData, 'id'>): Promise<any> {
     if (!this.db) await this.initDB();
     return await this.db!.add('sessions', sessionData);
   }
