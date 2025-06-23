@@ -11,8 +11,11 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService, Party } from '../../services/api.service';
+import { PartyService } from '../../services/party.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-key-generation',
@@ -29,6 +32,7 @@ import { ApiService, Party } from '../../services/api.service';
     MatProgressBarModule,
     MatChipsModule,
     MatDividerModule,
+    MatCheckboxModule,
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
@@ -80,12 +84,6 @@ import { ApiService, Party } from '../../services/api.service';
                         <mat-option value="arbitrum">Arbitrum</mat-option>
                       </mat-select>
                     </mat-form-field>
-
-                    <mat-form-field appearance="outline">
-                      <mat-label>Wallet Address</mat-label>
-                      <input matInput formControlName="walletAddress" placeholder="0x...">
-                      <mat-hint>Optional: Associated wallet address</mat-hint>
-                    </mat-form-field>
                   </div>
                 </mat-card-content>
               </mat-card>
@@ -134,6 +132,15 @@ import { ApiService, Party } from '../../services/api.service';
                             Please enter a valid URL
                           </mat-error>
                         </mat-form-field>
+
+                        <div class="party-participation">
+                          <mat-checkbox [formControlName]="'party' + i + 'Participate'">
+                            Join as this party in this browser
+                          </mat-checkbox>
+                          <p class="participation-hint">
+                            Check this to act as Party {{ i + 1 }} in this browser session
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -191,10 +198,6 @@ import { ApiService, Party } from '../../services/api.service';
                       <span class="label">Blockchain:</span>
                       <span class="value">{{ sessionForm.get('blockchain')?.value || 'Not specified' }}</span>
                     </div>
-                    <div class="review-item" *ngIf="sessionForm.get('walletAddress')?.value">
-                      <span class="label">Wallet Address:</span>
-                      <span class="value">{{ sessionForm.get('walletAddress')?.value }}</span>
-                    </div>
                   </div>
                 </div>
 
@@ -221,6 +224,7 @@ import { ApiService, Party } from '../../services/api.service';
                     <p>This session will use Shamir's Secret Sharing with a (3,3) threshold scheme:</p>
                     <ul>
                       <li>Private key will be split into 3 shares</li>
+                      <li>Wallet address will be generated from the private key</li>
                       <li>All 3 parties must participate for any operation</li>
                       <li>Shares are distributed via secure webhooks</li>
                       <li>Session expires in 24 hours</li>
@@ -340,6 +344,21 @@ import { ApiService, Party } from '../../services/api.service';
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    .party-participation {
+      margin-top: 8px;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 6px;
+      border: 1px solid #e3f2fd;
+    }
+
+    .participation-hint {
+      margin: 8px 0 0 0;
+      font-size: 12px;
+      color: #666;
+      font-style: italic;
     }
 
     .party-info {
@@ -529,13 +548,14 @@ export class KeyGenerationComponent {
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
+    private partyService: PartyService,
+    private snackBar: MatSnackBar,
     private router: Router
   ) {
     this.sessionForm = this.fb.group({
       operation: ['key_generation', Validators.required],
       description: [''],
       blockchain: ['ethereum'],
-      walletAddress: ['']
     });
 
     this.partiesForm = this.fb.group({
@@ -544,54 +564,87 @@ export class KeyGenerationComponent {
       party1Name: ['Party B', Validators.required],
       party1Url: ['http://localhost:3002/webhook', [Validators.required, Validators.pattern('https?://.+')]],
       party2Name: ['Party C', Validators.required],
-      party2Url: ['http://localhost:3003/webhook', [Validators.required, Validators.pattern('https?://.+')]]
+      party2Url: ['http://localhost:3003/webhook', [Validators.required, Validators.pattern('https?://.+')]],
+      party0Participate: [false],
+      party1Participate: [false],
+      party2Participate: [false]
     });
   }
 
   async createSession() {
-    if (!this.sessionForm.valid || !this.partiesForm.valid) {
+    if (this.sessionForm.invalid || this.partiesForm.invalid) {
       return;
     }
 
     this.creating = true;
     try {
-      const parties: Party[] = [
-        {
-          name: this.partiesForm.get('party0Name')?.value,
-          webhookUrl: this.partiesForm.get('party0Url')?.value
-        },
-        {
-          name: this.partiesForm.get('party1Name')?.value,
-          webhookUrl: this.partiesForm.get('party1Url')?.value
-        },
-        {
-          name: this.partiesForm.get('party2Name')?.value,
-          webhookUrl: this.partiesForm.get('party2Url')?.value
-        }
-      ];
+      // Check if user wants to participate as a party
+      const participatingParty = this.getParticipatingParty();
+      
+      // Prepare parties data
+      const parties = this.parties.map((_, i) => {
+        const isParticipating = participatingParty && participatingParty.partyId === i;
+        return {
+          name: this.partiesForm.get(`party${i}Name`)?.value,
+          webhookUrl: isParticipating 
+            ? `browser://party-${i}` // Special URL for browser parties
+            : this.partiesForm.get(`party${i}Url`)?.value
+        };
+      });
 
+      // Prepare metadata
       const metadata = {
         description: this.sessionForm.get('description')?.value,
         blockchain: this.sessionForm.get('blockchain')?.value,
-        walletAddress: this.sessionForm.get('walletAddress')?.value
       };
 
-      const response = await this.apiService.createSession(
-        this.sessionForm.get('operation')?.value,
+      const sessionConfig = {
+        operation: this.sessionForm.get('operation')?.value,
         parties,
         metadata
-      ).toPromise();
+      };
 
-      if (response?.success) {
+      // Create the session
+      const response = await this.apiService.createSession(sessionConfig).toPromise();
+
+      if (response) {
         this.createdSessionId = response.sessionId;
         this.sessionCreated = true;
+
+        // If user wants to participate as a party, initialize party service
+        if (participatingParty) {
+          await this.partyService.initializeAsParty(
+            participatingParty.partyId,
+            participatingParty.webhookUrl
+          );
+          
+          this.snackBar.open(
+            `Session created! You are now acting as Party ${participatingParty.partyId + 1}`, 
+            'Close', 
+            { duration: 5000 }
+          );
+        } else {
+          this.snackBar.open(`Session ${response.sessionId} created successfully!`, 'Close', { duration: 3000 });
+        }
       }
-    } catch (error) {
-      console.error('Failed to create session:', error);
-      // You could add error handling here (snackbar, etc.)
+    } catch (error: any) {
+      this.snackBar.open(`Failed to create session: ${error.message}`, 'Close', { duration: 5000 });
+      console.error(error);
     } finally {
       this.creating = false;
     }
+  }
+
+  private getParticipatingParty(): { partyId: number; webhookUrl: string } | null {
+    for (let i = 0; i < this.parties.length; i++) {
+      if (this.partiesForm.get(`party${i}Participate`)?.value) {
+        return {
+          partyId: i,
+          webhookUrl: this.partiesForm.get(`party${i}Url`)?.value
+        };
+      }
+    }
+    return null;
   }
 
   resetForm() {
@@ -599,7 +652,6 @@ export class KeyGenerationComponent {
       operation: 'key_generation',
       description: '',
       blockchain: 'ethereum',
-      walletAddress: ''
     });
 
     this.partiesForm.reset({
@@ -608,7 +660,10 @@ export class KeyGenerationComponent {
       party1Name: 'Party B',
       party1Url: 'http://localhost:3002/webhook',
       party2Name: 'Party C',
-      party2Url: 'http://localhost:3003/webhook'
+      party2Url: 'http://localhost:3003/webhook',
+      party0Participate: false,
+      party1Participate: false,
+      party2Participate: false
     });
 
     this.sessionCreated = false;

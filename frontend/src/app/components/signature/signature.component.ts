@@ -12,7 +12,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ApiService, SessionSummary, SignatureResponse } from '../../services/api.service';
+import { ApiService, SessionSummary, SignatureResponse, Session } from '../../services/api.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-signature',
@@ -79,11 +80,11 @@ import { ApiService, SessionSummary, SignatureResponse } from '../../services/ap
               </div>
               <div class="session-details">
                 <div class="parties-info">
-                  <span class="parties-count">{{ session.readyParties }}/{{ session.parties }} parties ready</span>
+                  <span class="parties-count">{{ getReadyPartiesCount(session) }}/{{ getTotalPartiesCount(session) }} parties ready</span>
                   <mat-progress-bar 
                     mode="determinate" 
-                    [value]="(session.readyParties / session.parties) * 100"
-                    [class]="getProgressColor(session.readyParties, session.parties)">
+                    [value]="(getReadyPartiesCount(session) / getTotalPartiesCount(session)) * 100"
+                    [class]="getProgressColor(getReadyPartiesCount(session), getTotalPartiesCount(session))">
                   </mat-progress-bar>
                 </div>
                 <div class="session-meta">
@@ -105,7 +106,7 @@ import { ApiService, SessionSummary, SignatureResponse } from '../../services/ap
           <mat-card-subtitle>Generate a threshold signature for the selected session</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
-          <form [formGroup]="signatureForm" (ngSubmit)="createSignature()">
+          <form [formGroup]="signatureForm" (ngSubmit)="onSubmit()">
             <div class="form-grid">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Message to Sign</mat-label>
@@ -131,11 +132,11 @@ import { ApiService, SessionSummary, SignatureResponse } from '../../services/ap
                   </div>
                   <div class="info-item">
                     <span class="label">Parties Required:</span>
-                    <span class="value">{{ getSelectedSession()?.parties || 0 }}</span>
+                    <span class="value">{{ getTotalPartiesCount(getSelectedSession()!) || 0 }}</span>
                   </div>
                   <div class="info-item">
                     <span class="label">Ready Parties:</span>
-                    <span class="value">{{ getSelectedSession()?.readyParties || 0 }}</span>
+                    <span class="value">{{ getReadyPartiesCount(getSelectedSession()!) || 0 }}</span>
                   </div>
                   <div class="info-item">
                     <span class="label">Threshold:</span>
@@ -496,7 +497,7 @@ import { ApiService, SessionSummary, SignatureResponse } from '../../services/ap
 })
 export class SignatureComponent implements OnInit {
   loadingSessions = false;
-  activeSessions: SessionSummary[] = [];
+  activeSessions: Session[] = [];
   selectedSessionId: string | null = null;
   signatureForm: FormGroup;
   creatingSignature = false;
@@ -506,9 +507,11 @@ export class SignatureComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar
   ) {
     this.signatureForm = this.fb.group({
+      sessionId: ['', Validators.required],
       message: ['', Validators.required]
     });
   }
@@ -518,17 +521,14 @@ export class SignatureComponent implements OnInit {
   }
 
   async loadActiveSessions() {
-    this.loadingSessions = true;
     try {
-      const response = await this.apiService.getSessions('active', 50).toPromise();
-      if (response?.success) {
-        this.activeSessions = response.sessions.filter(s => s.status === 'active');
+      const response = await this.apiService.getSessions().toPromise();
+      if (response) {
+        this.activeSessions = response.filter((s: Session) => s.status === 'active');
       }
     } catch (error) {
-      console.error('Failed to load sessions:', error);
-      this.error = 'Failed to load sessions';
-    } finally {
-      this.loadingSessions = false;
+      console.error('Failed to load active sessions', error);
+      this.snackBar.open('Could not load active sessions.', 'Close', { duration: 3000 });
     }
   }
 
@@ -538,7 +538,7 @@ export class SignatureComponent implements OnInit {
     this.error = null;
   }
 
-  getSelectedSession(): SessionSummary | undefined {
+  getSelectedSession(): Session | undefined {
     return this.activeSessions.find(s => s.sessionId === this.selectedSessionId);
   }
 
@@ -550,26 +550,33 @@ export class SignatureComponent implements OnInit {
     return 'warn';
   }
 
-  async createSignature() {
-    if (!this.signatureForm.valid || !this.selectedSessionId) {
+  getReadyPartiesCount(session: Session): number {
+    return session.parties?.filter(p => p.status === 'ready').length || 0;
+  }
+
+  getTotalPartiesCount(session: Session): number {
+    return session.parties?.length || 0;
+  }
+
+  async onSubmit() {
+    if (this.signatureForm.invalid) {
       return;
     }
-
     this.creatingSignature = true;
     this.error = null;
     
     try {
-      const response = await this.apiService.createSignature(
-        this.selectedSessionId,
-        { message: this.signatureForm.get('message')?.value }
-      ).toPromise();
+      const sessionId = this.signatureForm.get('sessionId')?.value;
+      const message = this.signatureForm.get('message')?.value;
+      const response = await this.apiService.createSignature(sessionId, message).toPromise();
 
-      if (response?.success) {
+      if (response) {
         this.signatureResult = response;
+        this.snackBar.open('Signature created successfully!', 'Close', { duration: 3000 });
       }
-    } catch (error) {
-      console.error('Failed to create signature:', error);
-      this.error = 'Failed to create signature. Please try again.';
+    } catch (err: any) {
+      this.error = err.error?.message || 'Failed to create signature.';
+      console.error(err);
     } finally {
       this.creatingSignature = false;
     }

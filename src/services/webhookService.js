@@ -11,6 +11,36 @@ class WebhookService {
    * Send webhook to a specific party
    */
   async sendWebhook(sessionId, partyId, webhookUrl, event, payload) {
+    // Check if this is a browser party (special webhook URL)
+    if (webhookUrl.startsWith('browser://')) {
+      console.log(`🌐 Browser party detected: ${webhookUrl} for party ${partyId}`);
+      
+      // For browser parties, we don't send HTTP requests
+      // Instead, we just log the webhook and return success
+      // The browser will handle the webhook through the PartyService
+      const duration = 0; // No network delay for browser parties
+      
+      // Log the webhook as if it was sent successfully
+      await WebhookLog.logOutbound(
+        sessionId,
+        partyId,
+        event,
+        webhookUrl,
+        payload,
+        { success: true, browserParty: true },
+        200,
+        duration,
+        true
+      );
+
+      return {
+        success: true,
+        data: { success: true, browserParty: true },
+        statusCode: 200,
+        duration
+      };
+    }
+
     const startTime = Date.now();
     let lastError = null;
 

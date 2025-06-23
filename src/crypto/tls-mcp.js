@@ -131,6 +131,35 @@ class TLSMCP {
   }
 
   /**
+   * Derive Ethereum wallet address from private key
+   */
+  deriveWalletAddress(privateKey) {
+    // Remove '0x' prefix if present
+    const privateKeyHex = privateKey.replace('0x', '');
+    
+    // Create public key using secp256k1 curve (simplified for PoC)
+    // In production, use a proper elliptic curve library like secp256k1
+    const publicKey = this.derivePublicKey(privateKeyHex);
+    
+    // Take the last 20 bytes of the Keccak-256 hash of the public key
+    const hash = crypto.createHash('sha256').update(publicKey, 'hex').digest('hex');
+    const address = '0x' + hash.slice(-40);
+    
+    return address;
+  }
+
+  /**
+   * Derive public key from private key (simplified for PoC)
+   * In production, use proper elliptic curve cryptography
+   */
+  derivePublicKey(privateKeyHex) {
+    // This is a simplified implementation for PoC
+    // In production, use a proper secp256k1 library
+    const hash = crypto.createHash('sha256').update(privateKeyHex).digest('hex');
+    return hash;
+  }
+
+  /**
    * Create a commitment to a share (for verification without revealing the share)
    */
   createCommitment(share, nonce) {

@@ -45,10 +45,6 @@ const sessionSchema = new mongoose.Schema({
     type: Number,
     default: 3
   },
-  secret: {
-    type: String
-    // Note: Encryption should be handled at the application level
-  },
   shares: [{
     partyId: Number,
     share: String
@@ -58,6 +54,10 @@ const sessionSchema = new mongoose.Schema({
     partyId: Number,
     commitment: String,
     nonce: String
+  }],
+  communicationPubKeys: [{
+    partyId: Number,
+    publicKey: String
   }],
   signatureComponents: [{
     partyId: Number,

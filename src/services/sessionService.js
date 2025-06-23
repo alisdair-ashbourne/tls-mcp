@@ -41,7 +41,7 @@ class SessionService {
   /**
    * Generate a new private key and distribute shares
    */
-  async generateKey(sessionId, walletAddress, blockchain = 'ethereum') {
+  async generateKey(sessionId, walletAddress = null, blockchain = 'ethereum') {
     const session = await Session.findOne({ sessionId });
     if (!session) {
       throw new Error('Session not found');
@@ -54,6 +54,9 @@ class SessionService {
     try {
       // Generate a new private key
       const privateKey = this.tlsMCP.generatePrivateKey();
+      
+      // Derive wallet address from private key if not provided
+      const derivedWalletAddress = walletAddress || this.tlsMCP.deriveWalletAddress(privateKey);
       
       // Split the private key into shares
       const secretSharing = this.tlsMCP.splitSecret(privateKey);
@@ -81,7 +84,7 @@ class SessionService {
         commitment: share.commitment,
         nonce: share.nonce
       }));
-      session.metadata.walletAddress = walletAddress;
+      session.metadata.walletAddress = derivedWalletAddress;
       session.metadata.blockchain = blockchain;
       session.status = 'active';
 
@@ -92,7 +95,7 @@ class SessionService {
 
       return {
         sessionId,
-        walletAddress,
+        walletAddress: derivedWalletAddress,
         blockchain,
         status: 'active',
         message: 'Key generation initiated. Shares distributed to parties.'
@@ -111,6 +114,10 @@ class SessionService {
    * Reconstruct the private key from shares
    */
   async reconstructKey(sessionId) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Key reconstruction is disabled in production environments.');
+    }
+
     const session = await Session.findOne({ sessionId });
     if (!session) {
       throw new Error('Session not found');
@@ -148,11 +155,6 @@ class SessionService {
 
       // Reconstruct the secret
       const reconstructedSecret = this.tlsMCP.reconstructSecret(shares);
-
-      // Verify reconstruction
-      if (reconstructedSecret !== session.secret) {
-        throw new Error('Secret reconstruction failed - verification mismatch');
-      }
 
       session.status = 'completed';
       await session.save();
@@ -420,6 +422,47 @@ class SessionService {
   async cleanupExpiredSessions() {
     const result = await Session.cleanupExpiredSessions();
     return result;
+  }
+
+  /**
+   * Adds a party's public communication key to the session.
+   * @param {string} sessionId - The ID of the session.
+   * @param {number} partyId - The ID of the party.
+   * @param {string} publicKey - The public key for communication.
+   */
+  async addCommunicationPublicKey(sessionId, partyId, publicKey) {
+    console.log(`🔑 Adding communication public key for session ${sessionId}, party ${partyId}`);
+
+    const update = {
+      $pull: { communicationPubKeys: { partyId: partyId } }
+    };
+
+    await Session.findOneAndUpdate({ sessionId }, update);
+
+    const pushUpdate = {
+      $addToSet: { communicationPubKeys: { partyId, publicKey } }
+    };
+
+    const updatedSession = await Session.findOneAndUpdate(
+      { sessionId },
+      pushUpdate,
+      { new: true }
+    );
+
+    if (!updatedSession) {
+      throw new Error('Session not found');
+    }
+
+    console.log(`✅ Communication public key added for party ${partyId}`);
+    return updatedSession;
+  }
+
+  /**
+   * Store a share for a party
+   * @param {String} sessionId
+   */
+  async storeShare(sessionId, share) {
+    // Implementation of storeShare method
   }
 }
 

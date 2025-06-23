@@ -129,12 +129,6 @@ app.post('/api/sessions/:sessionId/generate-key', async (req, res) => {
     const { sessionId } = req.params;
     const { walletAddress, blockchain } = req.body;
     
-    if (!walletAddress) {
-      return res.status(400).json({
-        error: 'Wallet address is required'
-      });
-    }
-
     const result = await sessionService.generateKey(sessionId, walletAddress, blockchain);
     
     res.json({
@@ -152,6 +146,13 @@ app.post('/api/sessions/:sessionId/generate-key', async (req, res) => {
 
 // Key reconstruction
 app.post('/api/sessions/:sessionId/reconstruct-key', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Key reconstruction is disabled in production'
+    });
+  }
+
   try {
     const { sessionId } = req.params;
     const result = await sessionService.reconstructKey(sessionId);
@@ -276,6 +277,73 @@ app.get('/api/webhook-logs/:sessionId', async (req, res) => {
       error: 'Failed to get webhook logs',
       message: error.message
     });
+  }
+});
+
+// Get pending webhook events for browser parties
+app.get('/api/sessions/:sessionId/parties/:partyId/webhook-events', async (req, res) => {
+  try {
+    const { sessionId, partyId } = req.params;
+    
+    const WebhookLog = require('./models/WebhookLog');
+    const logs = await WebhookLog.find({
+      sessionId,
+      partyId: parseInt(partyId),
+      direction: 'outbound',
+      success: true,
+      webhookUrl: { $regex: /^browser:\/\// }
+    }).sort({ timestamp: -1 }).limit(10);
+    
+    res.json({
+      success: true,
+      events: logs.map(log => ({
+        event: log.event,
+        payload: log.requestBody,
+        timestamp: log.timestamp
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting webhook events:', error);
+    res.status(500).json({
+      error: 'Failed to get webhook events',
+      message: error.message
+    });
+  }
+});
+
+// Add a party's communication public key
+app.post('/api/sessions/:sessionId/parties/:partyId/communication-key', async (req, res) => {
+  try {
+    const { sessionId, partyId } = req.params;
+    const { publicKey } = req.body;
+
+    if (!publicKey) {
+      return res.status(400).json({ error: 'Public key is required' });
+    }
+
+    const updatedSession = await sessionService.addCommunicationPublicKey(sessionId, parseInt(partyId), publicKey);
+    res.json(updatedSession);
+  } catch (error) {
+    console.error('Error adding communication public key:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Join a session as a party
+app.post('/api/sessions/:sessionId/join', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { walletAddress } = req.body;
+
+    if (!walletAddress) {
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+
+    const result = await sessionService.joinSession(sessionId, walletAddress);
+    res.json(result);
+  } catch (error) {
+    console.error('Error joining session:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

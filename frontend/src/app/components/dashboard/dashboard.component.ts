@@ -1,14 +1,15 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatListModule } from '@angular/material/list';
-import { RouterLink } from '@angular/router';
-import { ApiService, SessionSummary } from '../../services/api.service';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
+import { RouterLink } from '@angular/router';
+import { ApiService, Session, SessionSummary } from '../../services/api.service';
 import { IndexedDBService } from '../../services/indexeddb.service';
+import { PartyService } from '../../services/party.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -41,6 +42,7 @@ import { IndexedDBService } from '../../services/indexeddb.service';
             <mat-icon [class.rotating]="healthChecking">{{ healthChecking ? 'hourglass_empty' : 'refresh' }}</mat-icon>
           </button>
         </mat-card-header>
+
         <mat-card-content>
           <div class="status-grid">
             <div class="status-item">
@@ -79,6 +81,7 @@ import { IndexedDBService } from '../../services/indexeddb.service';
             Quick Actions
           </mat-card-title>
         </mat-card-header>
+
         <mat-card-content>
           <div class="actions-grid">
             <button mat-raised-button color="primary" routerLink="/key-generation">
@@ -93,15 +96,169 @@ import { IndexedDBService } from '../../services/indexeddb.service';
               <mat-icon>edit</mat-icon>
               Create Signature
             </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- IndexedDB Management -->
+      <mat-card class="indexeddb-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>storage</mat-icon>
+            IndexedDB Management
+          </mat-card-title>
+          <mat-card-subtitle>Manage local database and data synchronization</mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content>
+          <div class="actions-grid">
             <button mat-raised-button (click)="loadIndexedDBData()" [disabled]="showDebugInfo">
               <mat-icon>bug_report</mat-icon>
               Load IndexedDB Data
             </button>
+
+            <button mat-raised-button (click)="refreshIndexedDB()" [disabled]="showDebugInfo">
+              <mat-icon>refresh</mat-icon>
+              Refresh IndexedDB
+            </button>
+
+            <button mat-raised-button (click)="addTestData()" [disabled]="showDebugInfo">
+              <mat-icon>add</mat-icon>
+              Add Test Data
+            </button>
+
+            <button mat-raised-button (click)="syncServerToIndexedDB()" [disabled]="showDebugInfo">
+              <mat-icon>sync</mat-icon>
+              Sync Server to IndexedDB
+            </button>
+
+            <button mat-raised-button (click)="resetIndexedDB()" [disabled]="showDebugInfo" color="warn">
+              <mat-icon>delete_forever</mat-icon>
+              Reset Database
+            </button>
+
             <button mat-raised-button (click)="showDebugInfo = !showDebugInfo">
               <mat-icon>{{ showDebugInfo ? 'visibility_off' : 'visibility' }}</mat-icon>
               {{ showDebugInfo ? 'Hide' : 'Show' }} Debug Info
             </button>
           </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- IndexedDB Summary -->
+      <mat-card *ngIf="showDebugInfo" class="summary-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>storage</mat-icon>
+            IndexedDB Summary
+          </mat-card-title>
+          <mat-card-subtitle>Overview of all local database tables</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.sessions?.count || 0 }}</div>
+              <div class="summary-label">Sessions</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.shares?.count || 0 }}</div>
+              <div class="summary-label">Shares</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.partySessions?.count || 0 }}</div>
+              <div class="summary-label">Party Sessions</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.partyShares?.count || 0 }}</div>
+              <div class="summary-label">Party Shares</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.communicationKeys?.count || 0 }}</div>
+              <div class="summary-label">Comm Keys</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.webhookEvents?.count || 0 }}</div>
+              <div class="summary-label">Webhook Events</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-number">{{ indexedDBData.partyConfig?.count || 0 }}</div>
+              <div class="summary-label">Party Configs</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Party View (when acting as a party) -->
+      <mat-card *ngIf="isActingAsParty" class="party-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>person</mat-icon>
+            Party {{ currentPartyId! + 1 }} Dashboard
+          </mat-card-title>
+          <mat-card-subtitle>You are participating as Party {{ currentPartyId! + 1 }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="party-stats">
+            <div class="party-stat">
+              <div class="stat-number">{{ partySessions.length }}</div>
+              <div class="stat-label">Active Sessions</div>
+            </div>
+            <div class="party-stat">
+              <div class="stat-number">{{ partyShares.length }}</div>
+              <div class="stat-label">Shares Held</div>
+            </div>
+            <div class="party-stat">
+              <div class="stat-number">{{ partyWebhookEvents.length }}</div>
+              <div class="stat-label">Webhook Events</div>
+            </div>
+          </div>
+
+          <mat-tab-group>
+            <mat-tab label="Sessions">
+              <div class="party-content">
+                <div *ngFor="let session of partySessions" class="party-session-item">
+                  <div class="session-header">
+                    <span class="session-id">{{ session.sessionId.substring(0, 8) }}...</span>
+                    <span class="session-status" [class]="session.status">{{ session.status }}</span>
+                  </div>
+                  <div class="session-details">
+                    <span>Operation: {{ session.operation }}</span>
+                    <span>Created: {{ session.createdAt | date:'short' }}</span>
+                  </div>
+                </div>
+                <p *ngIf="partySessions.length === 0">No sessions found</p>
+              </div>
+            </mat-tab>
+            
+            <mat-tab label="Shares">
+              <div class="party-content">
+                <div *ngFor="let share of partyShares" class="party-share-item">
+                  <div class="share-header">
+                    <span class="session-id">{{ share.sessionId.substring(0, 8) }}...</span>
+                    <span class="share-received">{{ share.receivedAt | date:'short' }}</span>
+                  </div>
+                  <div class="share-details">
+                    <span>Share: {{ share.share.substring(0, 20) }}...</span>
+                    <span>Commitment: {{ share.commitment.substring(0, 20) }}...</span>
+                  </div>
+                </div>
+                <p *ngIf="partyShares.length === 0">No shares found</p>
+              </div>
+            </mat-tab>
+            
+            <mat-tab label="Webhook Events">
+              <div class="party-content">
+                <div *ngFor="let event of partyWebhookEvents.slice(0, 10)" class="party-event-item">
+                  <div class="event-header">
+                    <span class="event-type">{{ event.event }}</span>
+                    <span class="event-time">{{ event.timestamp | date:'short' }}</span>
+                  </div>
+                  <div class="event-session">{{ event.sessionId.substring(0, 8) }}...</div>
+                </div>
+                <p *ngIf="partyWebhookEvents.length === 0">No webhook events found</p>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
         </mat-card-content>
       </mat-card>
 
@@ -122,17 +279,57 @@ import { IndexedDBService } from '../../services/indexeddb.service';
           <mat-tab-group>
             <mat-tab label="Sessions">
               <div class="debug-content">
-                <h4>Sessions ({{ indexedDBData.sessions?.length || 0 }})</h4>
-                <pre *ngIf="indexedDBData.sessions?.length">{{ indexedDBData.sessions | json }}</pre>
-                <p *ngIf="!indexedDBData.sessions?.length">No sessions found</p>
+                <h4>Sessions ({{ indexedDBData.sessions?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.sessions?.data?.length">{{ indexedDBData.sessions.data | json }}</pre>
+                <p *ngIf="!indexedDBData.sessions?.data?.length">No sessions found</p>
               </div>
             </mat-tab>
             
             <mat-tab label="Shares">
               <div class="debug-content">
-                <h4>Shares ({{ indexedDBData.shares?.length || 0 }})</h4>
-                <pre *ngIf="indexedDBData.shares?.length">{{ indexedDBData.shares | json }}</pre>
-                <p *ngIf="!indexedDBData.shares?.length">No shares found</p>
+                <h4>Shares ({{ indexedDBData.shares?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.shares?.data?.length">{{ indexedDBData.shares.data | json }}</pre>
+                <p *ngIf="!indexedDBData.shares?.data?.length">No shares found</p>
+              </div>
+            </mat-tab>
+
+            <mat-tab label="Party Sessions">
+              <div class="debug-content">
+                <h4>Party Sessions ({{ indexedDBData.partySessions?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.partySessions?.data?.length">{{ indexedDBData.partySessions.data | json }}</pre>
+                <p *ngIf="!indexedDBData.partySessions?.data?.length">No party sessions found</p>
+              </div>
+            </mat-tab>
+
+            <mat-tab label="Party Shares">
+              <div class="debug-content">
+                <h4>Party Shares ({{ indexedDBData.partyShares?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.partyShares?.data?.length">{{ indexedDBData.partyShares.data | json }}</pre>
+                <p *ngIf="!indexedDBData.partyShares?.data?.length">No party shares found</p>
+              </div>
+            </mat-tab>
+
+            <mat-tab label="Communication Keys">
+              <div class="debug-content">
+                <h4>Communication Keys ({{ indexedDBData.communicationKeys?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.communicationKeys?.data?.length">{{ indexedDBData.communicationKeys.data | json }}</pre>
+                <p *ngIf="!indexedDBData.communicationKeys?.data?.length">No communication keys found</p>
+              </div>
+            </mat-tab>
+
+            <mat-tab label="Webhook Events">
+              <div class="debug-content">
+                <h4>Webhook Events ({{ indexedDBData.webhookEvents?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.webhookEvents?.data?.length">{{ indexedDBData.webhookEvents.data | json }}</pre>
+                <p *ngIf="!indexedDBData.webhookEvents?.data?.length">No webhook events found</p>
+              </div>
+            </mat-tab>
+
+            <mat-tab label="Party Config">
+              <div class="debug-content">
+                <h4>Party Configuration ({{ indexedDBData.partyConfig?.count || 0 }})</h4>
+                <pre *ngIf="indexedDBData.partyConfig?.data?.length">{{ indexedDBData.partyConfig.data | json }}</pre>
+                <p *ngIf="!indexedDBData.partyConfig?.data?.length">No party configuration found</p>
               </div>
             </mat-tab>
           </mat-tab-group>
@@ -160,15 +357,15 @@ import { IndexedDBService } from '../../services/indexeddb.service';
           </div>
           
           <mat-list *ngIf="!loading && recentSessions.length > 0">
-            <mat-list-item *ngFor="let session of recentSessions" [routerLink]="['/sessions', session.sessionId]">
-              <mat-icon matListItemIcon [class]="getStatusIcon(session.status)">{{ getStatusIcon(session.status) }}</mat-icon>
-              <div matListItemTitle>{{ session.operation | titlecase }}</div>
+            <mat-list-item *ngFor="let session of recentSessions">
+              <mat-icon matListItemIcon>{{ getStatusIcon(session.status) }}</mat-icon>
+              <div matListItemTitle>{{ session.operation }} - {{ session.sessionId.substring(0, 8) }}...</div>
               <div matListItemLine>
-                {{ session.readyParties }}/{{ session.parties }} parties ready • 
-                {{ session.createdAt | date:'short' }}
-              </div>
-              <div matListItemMeta>
-                <span class="status-badge" [class]="session.status">{{ session.status }}</span>
+                <span>Status: {{ session.status }}</span>
+                <span class="spacer"></span>
+                <span>Parties: {{ getReadyPartiesCount(session) }}/{{ getTotalPartiesCount(session) }}</span>
+                <span class="spacer"></span>
+                <span>Created: {{ session.createdAt | date:'short' }}</span>
               </div>
             </mat-list-item>
           </mat-list>
@@ -218,7 +415,11 @@ import { IndexedDBService } from '../../services/indexeddb.service';
       color: #333;
     }
 
-    .status-card, .actions-card, .sessions-card, .stats-card {
+    .status-card, .actions-card, .indexeddb-card, .sessions-card, .stats-card {
+      margin-bottom: 20px;
+    }
+
+    .status-card, .actions-card, .indexeddb-card, .party-card, .sessions-card, .stats-card {
       margin-bottom: 20px;
     }
 
@@ -396,22 +597,146 @@ import { IndexedDBService } from '../../services/indexeddb.service';
       color: #333;
       font-weight: 500;
     }
+
+    .party-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .party-stat {
+      text-align: center;
+      padding: 16px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      border: 1px solid #bbdefb;
+    }
+
+    .party-content {
+      padding: 16px 0;
+    }
+
+    .party-session-item, .party-share-item, .party-event-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+
+    .session-header, .share-header, .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .session-id, .share-received, .event-time {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .session-status {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .session-status.initialized {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .session-status.share_received {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .session-status.ready {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .session-status.completed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .session-status.failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .session-details, .share-details {
+      display: flex;
+      gap: 16px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .event-type {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .event-session {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .summary-card {
+      margin-top: 20px;
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+    }
+
+    .summary-item {
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #bbdefb;
+    }
+
+    .summary-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #1976d2;
+    }
+
+    .summary-label {
+      margin-top: 8px;
+      color: #666;
+      font-size: 14px;
+    }
   `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  loading = false;
-  healthChecking = false;
+  private healthCheckInterval?: any;
+
+  activeSessions = 0;
+  completedSessions = 0;
   coordinatorHealthy = false;
+  failedSessions = 0;
+  healthChecking = false;
+  lastHealthCheck?: Date;
+  loading = false;
   partyAHealthy = false;
   partyBHealthy = false;
   partyCHealthy = false;
-  lastHealthCheck?: Date;
-  recentSessions: SessionSummary[] = [];
+  recentSessions: (Session | SessionSummary)[] = [];
   totalSessions = 0;
-  activeSessions = 0;
-  completedSessions = 0;
-  failedSessions = 0;
-  private healthCheckInterval?: any;
   
   // Debug properties
   showDebugInfo = false;
@@ -419,17 +744,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
   indexedDBError?: string;
   serverData: any = {};
   serverError?: string;
+  
+  // Party-specific properties
+  isActingAsParty = false;
+  currentPartyId: number | null = null;
+  partySessions: any[] = [];
+  partyShares: any[] = [];
+  partyWebhookEvents: any[] = [];
+  
+  systemHealth = {
+    status: 'pending',
+    checking: false,
+    api: 'pending',
+    db: 'pending',
+    lastCheck: new Date()
+  };
 
   constructor(
     private apiService: ApiService,
-    private indexedDBService: IndexedDBService
+    private indexedDBService: IndexedDBService,
+    private partyService: PartyService
   ) {}
 
   ngOnInit() {
     this.checkSystemHealth();
     this.loadRecentSessions();
-    this.loadAllDebugData(); // Load both server and IndexedDB data
-    
+    this.loadAllDebugData();
+    this.syncServerToIndexedDB(); // Automatically sync server data to IndexedDB
+    this.checkPartyStatus(); // Check if acting as a party
+
     // Set up periodic health checks every 30 seconds
     this.healthCheckInterval = setInterval(() => {
       this.checkSystemHealth();
@@ -443,102 +786,69 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   async checkSystemHealth() {
-    this.healthChecking = true;
-    console.log('🏥 Starting system health check...');
-    
+    this.systemHealth.checking = true;
+
     try {
-      console.log('🔍 Checking coordinator health...');
-      const health = await this.apiService.getHealth().toPromise();
-      this.coordinatorHealthy = health?.status === 'healthy';
-      console.log('✅ Coordinator health check:', health);
+      // Check coordinator health
+      const coordinatorResponse = await fetch('http://localhost:3000/health');
+      this.coordinatorHealthy = coordinatorResponse.ok;
+
+      // Check party health
+      const partyUrls = [
+        'http://localhost:3001/health',
+        'http://localhost:3002/health', 
+        'http://localhost:3003/health'
+      ];
+
+      const partyHealthChecks = await Promise.allSettled(
+        partyUrls.map(url => fetch(url))
+      );
+
+      this.partyAHealthy = partyHealthChecks[0].status === 'fulfilled' && partyHealthChecks[0].value.ok;
+      this.partyBHealthy = partyHealthChecks[1].status === 'fulfilled' && partyHealthChecks[1].value.ok;
+      this.partyCHealthy = partyHealthChecks[2].status === 'fulfilled' && partyHealthChecks[2].value.ok;
+
+      // Overall system health
+      const allHealthy = this.coordinatorHealthy && this.partyAHealthy && this.partyBHealthy && this.partyCHealthy;
+
+      this.systemHealth = {
+        ...this.systemHealth,
+        status: allHealthy ? 'OK' : 'Error',
+        api: this.coordinatorHealthy ? 'OK' : 'Error',
+        db: 'OK', // Assuming DB is ok if coordinator is ok
+        lastCheck: new Date()
+      };
+
+      this.lastHealthCheck = new Date();
     } catch (error) {
-      console.error('💥 Coordinator health check failed:', error);
       this.coordinatorHealthy = false;
-    }
+      this.partyAHealthy = false;
+      this.partyBHealthy = false;
+      this.partyCHealthy = false;
 
-    // Check party health by making actual HTTP requests
-    console.log('🔍 Checking party health...');
-    await Promise.all([
-      this.checkPartyHealth('A', 3001),
-      this.checkPartyHealth('B', 3002),
-      this.checkPartyHealth('C', 3003)
-    ]);
-    this.healthChecking = false;
-    this.lastHealthCheck = new Date();
-    console.log('✅ System health check completed');
-  }
+      this.systemHealth = {
+        ...this.systemHealth,
+        status: 'Error',
+        api: 'Error',
+        db: 'Unknown',
+        lastCheck: new Date()
+      };
 
-  private async checkPartyHealth(partyName: string, port: number): Promise<void> {
-    console.log(`🔍 Checking Party ${partyName} health on port ${port}...`);
-    try {
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-      const startTime = Date.now();
-      const response = await fetch(`http://localhost:${port}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      });
-      const responseTime = Date.now() - startTime;
-      
-      clearTimeout(timeoutId);
-      
-      console.log(`📡 Party ${partyName} response:`, {
-        status: response.status,
-        ok: response.ok,
-        responseTime: `${responseTime}ms`
-      });
-      
-      if (response.ok) {
-        const health = await response.json();
-        const isHealthy = health.status === 'healthy';
-        
-        console.log(`✅ Party ${partyName} health check:`, health);
-        this.setPartyHealth(partyName, isHealthy);
-      } else {
-        console.warn(`❌ Party ${partyName} returned status ${response.status}`);
-        this.setPartyHealth(partyName, false);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.error(`⏰ Party ${partyName} health check timed out`);
-      } else {
-        console.error(`💥 Failed to check Party ${partyName} health:`, error);
-      }
-      this.setPartyHealth(partyName, false);
-    }
-  }
-
-  private setPartyHealth(partyName: string, healthy: boolean): void {
-    switch (partyName) {
-      case 'A':
-        this.partyAHealthy = healthy;
-        break;
-      case 'B':
-        this.partyBHealthy = healthy;
-        break;
-      case 'C':
-        this.partyCHealthy = healthy;
-        break;
+      console.error('System health check failed:', error);
+    } finally {
+      this.systemHealth.checking = false;
     }
   }
 
   async loadRecentSessions() {
-    this.loading = true;
     try {
-      const response = await this.apiService.getSessions(undefined, 10).toPromise();
-      if (response?.success) {
-        this.recentSessions = response.sessions;
+      const response = await this.apiService.getSessions().toPromise();
+      if (response) {
+        this.recentSessions = response.slice(0, 10);
         this.calculateStats();
       }
     } catch (error) {
-      console.error('Failed to load sessions:', error);
-    } finally {
-      this.loading = false;
+      console.error('Failed to load recent sessions:', error);
     }
   }
 
@@ -547,6 +857,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.activeSessions = this.recentSessions.filter(s => s.status === 'active').length;
     this.completedSessions = this.recentSessions.filter(s => s.status === 'completed').length;
     this.failedSessions = this.recentSessions.filter(s => s.status === 'failed').length;
+  }
+
+  getReadyPartiesCount(session: Session | SessionSummary): number {
+    // Handle both Session (with parties array) and SessionSummary (with parties number)
+    if (Array.isArray(session.parties)) {
+      return session.parties.filter(p => p.status === 'ready').length;
+    } else if (typeof session.parties === 'number') {
+      // For SessionSummary, use readyParties if available, otherwise assume all parties are ready
+      return (session as any).readyParties || session.parties;
+    }
+    return 0;
+  }
+
+  getTotalPartiesCount(session: Session | SessionSummary): number {
+    // Handle both Session (with parties array) and SessionSummary (with parties number)
+    if (Array.isArray(session.parties)) {
+      return session.parties.length;
+    } else if (typeof session.parties === 'number') {
+      return session.parties;
+    }
+    return 0;
   }
 
   getStatusIcon(status: string): string {
@@ -563,6 +894,68 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async refreshHealth() {
     if (this.healthChecking) return; // Prevent multiple simultaneous checks
     await this.checkSystemHealth();
+  }
+
+  // Method to manually sync server data to IndexedDB
+  async manualSync() {
+    try {
+      console.log('🔄 Manual sync triggered...');
+      await this.syncServerToIndexedDB();
+      console.log('✅ Manual sync completed');
+    } catch (error) {
+      console.error('❌ Manual sync failed:', error);
+    }
+  }
+
+  // Method to manually refresh IndexedDB data
+  async refreshIndexedDB() {
+    try {
+      console.log('🔄 Refreshing IndexedDB data...');
+      await this.loadIndexedDBData();
+      console.log('✅ IndexedDB data refreshed');
+    } catch (error) {
+      console.error('❌ Failed to refresh IndexedDB data:', error);
+    }
+  }
+
+  // Test method to add sample data to IndexedDB
+  async addTestData() {
+    try {
+      console.log('🧪 Adding test data to IndexedDB...');
+      
+      // Add a test session
+      await this.indexedDBService.storeSession({
+        sessionId: 'test-session-123',
+        status: 'active',
+        operation: 'key_generation',
+        metadata: {
+          parties: 3,
+          readyParties: 2,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Add a test share
+      await this.indexedDBService.storeShare({
+        sessionId: 'test-session-123',
+        partyId: 1,
+        share: 'test-share-data',
+        commitment: 'test-commitment',
+        nonce: 'test-nonce',
+        createdAt: new Date()
+      });
+
+      console.log('✅ Test data added successfully');
+      
+      // Refresh the IndexedDB data display
+      await this.loadIndexedDBData();
+      
+    } catch (error) {
+      console.error('❌ Failed to add test data:', error);
+    }
   }
 
   // Debug method to load IndexedDB data
@@ -582,9 +975,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const debugData = await this.indexedDBService.debugViewAllData();
       this.indexedDBData = debugData;
       
-    } catch (error) {
-      this.indexedDBError = `Error accessing IndexedDB: ${error}`;
+    } catch (error: any) {
+      this.indexedDBError = `Error accessing IndexedDB: ${error.message}`;
       console.error('IndexedDB access error:', error);
+      
+      // If there's a version mismatch error, suggest resetting
+      if (error.message.includes('object stores was not found') || 
+          error.message.includes('transaction') ||
+          error.message.includes('upgrade')) {
+        this.indexedDBError = `Database version mismatch. Please reset the database.`;
+      }
       
       // If there's still an error, try resetting the database
       try {
@@ -606,21 +1006,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.serverError = undefined;
       
       // Get sessions from server
-      const sessionsResponse = await this.apiService.getSessions(undefined, 50).toPromise();
+      const sessionsResponse = await this.apiService.getSessions().toPromise();
       
       this.serverData = {
         sessions: {
-          count: sessionsResponse?.sessions?.length || 0,
-          data: sessionsResponse?.sessions || []
+          count: sessionsResponse?.length || 0,
+          data: sessionsResponse || []
         },
         timestamp: new Date().toISOString()
       };
       
       console.log('🔍 Server Data:', this.serverData);
       
-    } catch (error) {
-      this.serverError = `Error loading server data: ${error}`;
-      console.error('Server data error:', error);
+    } catch (error: any) {
+      this.serverError = `Error loading server data: ${error.message}`;
+      console.error(this.serverError);
     }
   }
 
@@ -670,5 +1070,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadServerData(),
       this.loadIndexedDBData()
     ]);
+  }
+
+  async checkPartyStatus() {
+    this.isActingAsParty = this.partyService.isActingAsParty();
+    this.currentPartyId = this.partyService.getCurrentPartyId();
+    
+    if (this.isActingAsParty) {
+      await this.loadPartyData();
+      
+      // Subscribe to webhook events
+      this.partyService.getWebhookEvents().subscribe(async (event) => {
+        console.log('📡 Received webhook event:', event);
+        await this.loadPartyData(); // Refresh party data
+      });
+    }
+  }
+
+  async loadPartyData() {
+    if (!this.isActingAsParty) return;
+    
+    try {
+      this.partySessions = await this.partyService.getPartySessions();
+      this.partyShares = await this.partyService.getPartyShares();
+      this.partyWebhookEvents = await this.partyService.getPartyWebhookEvents();
+    } catch (error) {
+      console.error('Failed to load party data:', error);
+    }
+  }
+
+  async resetIndexedDB() {
+    try {
+      console.log('🔄 Resetting IndexedDB...');
+      await this.indexedDBService.resetDatabase();
+      console.log('✅ IndexedDB reset');
+      
+      // Refresh the IndexedDB data display
+      await this.loadIndexedDBData();
+    } catch (error) {
+      console.error('❌ Failed to reset IndexedDB:', error);
+    }
   }
 } 

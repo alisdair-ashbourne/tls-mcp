@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -14,7 +14,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialogModule } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 import { ApiService, Session, WebhookLog } from '../../services/api.service';
+import { CryptoService } from '../../services/crypto.service';
+import { IndexedDBService } from '../../services/indexeddb.service';
+import { PartyService } from '../../services/party.service';
+import { Wallet } from 'ethers';
 
 @Component({
   selector: 'app-session-detail',
@@ -448,56 +454,206 @@ import { ApiService, Session, WebhookLog } from '../../services/api.service';
     }
   `]
 })
-export class SessionDetailComponent implements OnInit {
-  loading = false;
-  loadingLogs = false;
+export class SessionDetailComponent implements OnInit, OnDestroy {
   session: Session | null = null;
   webhookLogs: WebhookLog[] = [];
-  
-  generatingKey = false;
+  loading = true;
+  loadingLogs = false;
   reconstructingKey = false;
   creatingSignature = false;
+  thisPartyId: number | null = null; // Will be set from PartyService
+  generatingKey = false;
+
+  // Client-side crypto properties
+  reconstructedWallet: Wallet | null = null;
+  encryptionPlaintext = 'This is a secret message.';
+  encryptionCiphertext: string | null = null;
+  encryptionDecryptedtext: string | null = null;
+  encryptionError: string | null = null;
+  communicationKey: { publicKey: string, privateKey: string } | null = null;
+  isCommKeyLoading = false;
+
+  signatureMessage = 'Sign this message to prove ownership.';
+  signatureResult: { signature: string, digest: string } | null = null;
+  signatureError: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private cryptoService: CryptoService,
+    private indexedDBService: IndexedDBService,
+    private partyService: PartyService,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
+    // Get party ID from PartyService if this browser is acting as a party
+    this.thisPartyId = this.partyService.getCurrentPartyId();
+    
     this.route.params.subscribe(params => {
       const sessionId = params['id'];
       if (sessionId) {
-        this.loadSession(sessionId);
-        this.loadWebhookLogs(sessionId);
+        this.loadAllData(sessionId);
+        
+        // Start polling for webhook events if this browser is acting as a party
+        if (this.thisPartyId !== null) {
+          this.partyService.startPollingForSession(sessionId);
+        }
       }
     });
   }
 
-  async loadSession(sessionId: string) {
+  ngOnDestroy() {
+    // Stop polling when component is destroyed
+    this.partyService.stopPolling();
+  }
+
+  async loadAllData(sessionId: string) {
     this.loading = true;
     try {
-      const response = await this.apiService.getSession(sessionId).toPromise();
-      if (response?.success) {
-        this.session = response.session;
+      await this.loadSession(sessionId);
+      await this.loadWebhookLogs(sessionId);
+      // Only set up comms key if the session loaded successfully and we have a party ID
+      if (this.session && this.thisPartyId !== null) {
+        await this.setupCommunicationKey(sessionId, this.thisPartyId);
       }
-    } catch (error) {
-      console.error('Failed to load session:', error);
+    } catch (error: any) {
+      this.snackBar.open(`Failed to load session data: ${error.message}`, 'Close', { duration: 5000 });
+      console.error(error);
     } finally {
       this.loading = false;
+    }
+  }
+
+  async loadSession(sessionId: string) {
+    try {
+      const session = await firstValueFrom(this.apiService.getSession(sessionId));
+      if (session) {
+        this.session = session;
+        console.log('✅ Session loaded successfully:', session);
+      } else {
+        throw new Error('Session not found');
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to load session:', error);
+      throw new Error(`Failed to load session: ${error.message || 'Unknown error'}`);
     }
   }
 
   async loadWebhookLogs(sessionId: string) {
     this.loadingLogs = true;
     try {
-      const response = await this.apiService.getWebhookLogs(sessionId, 50).toPromise();
-      if (response?.success) {
-        this.webhookLogs = response.logs;
-      }
-    } catch (error) {
-      console.error('Failed to load webhook logs:', error);
+      const logs = await firstValueFrom(this.apiService.getWebhookLogs(sessionId));
+      this.webhookLogs = logs || [];
+      console.log('✅ Webhook logs loaded:', this.webhookLogs.length);
+    } catch (error: any) {
+      console.error('❌ Failed to load webhook logs:', error);
+      this.webhookLogs = [];
     } finally {
       this.loadingLogs = false;
+    }
+  }
+
+  async setupCommunicationKey(sessionId: string, partyId: number) {
+    this.isCommKeyLoading = true;
+    try {
+      const privateKey = await this.indexedDBService.getCommunicationKey(sessionId, partyId);
+      if (privateKey) {
+        const wallet = this.cryptoService.getWalletFromPrivateKey(privateKey);
+        this.communicationKey = wallet ? { publicKey: wallet.publicKey, privateKey } : null;
+        console.log(`✅ Communication key loaded from IndexedDB for party ${partyId}`);
+      } else {
+        console.log(`🤷 No communication key found for party ${partyId}. Generating a new one.`);
+        const newWallet = this.cryptoService.generateNewWallet();
+        
+        // Get public key in the correct format for communication
+        const publicKey = this.cryptoService.getPublicKeyForEncryption(newWallet);
+        console.log(`🔑 Generated public key: ${publicKey.substring(0, 20)}...`);
+        
+        this.communicationKey = { publicKey: newWallet.publicKey, privateKey: newWallet.privateKey };
+        await this.indexedDBService.storeCommunicationKey(sessionId, partyId, newWallet.privateKey);
+        console.log(`🔒 New communication key stored in IndexedDB for party ${partyId}`);
+
+        const updatedSession = await firstValueFrom(this.apiService.addCommunicationPublicKey(sessionId, partyId, publicKey));
+        if(updatedSession) {
+          this.session = updatedSession;
+        }
+        console.log(`🚀 Communication public key published for party ${partyId}`);
+        this.snackBar.open(`Communication key for Party ${partyId} published!`, 'Close', { duration: 3000 });
+      }
+    } catch (error: any) {
+      console.error('Error setting up communication key:', error);
+      this.snackBar.open(`Error setting up communication key: ${error.message}`, 'Close', { duration: 5000 });
+    } finally {
+      this.isCommKeyLoading = false;
+    }
+  }
+
+  getPartyCommKey(partyId: number): string {
+    if (!this.session?.communicationPubKeys) return 'N/A';
+    const partyKey = this.session.communicationPubKeys.find(p => p.partyId === partyId);
+    return partyKey ? partyKey.publicKey.substring(0, 20) + '...' : 'Not Published Yet';
+  }
+
+  async reconstructKey() {
+    if (!this.session) return;
+    this.reconstructingKey = true;
+    this.reconstructedWallet = null;
+    try {
+      const result = await firstValueFrom(this.apiService.reconstructKey(this.session.sessionId));
+      if (result && result.privateKey) {
+        this.reconstructedWallet = this.cryptoService.getWalletFromPrivateKey(result.privateKey);
+        await this.loadSession(this.session.sessionId);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to reconstruct key:', error);
+      this.snackBar.open(`Failed to reconstruct key: ${error.message}`, 'Close', { duration: 5000 });
+    } finally {
+      this.reconstructingKey = false;
+    }
+  }
+
+  async createSignature() {
+    if (!this.session) return;
+    this.creatingSignature = true;
+    this.signatureError = null;
+    this.signatureResult = null;
+    try {
+      const result = await firstValueFrom(this.apiService.createSignature(this.session.sessionId, this.signatureMessage));
+      if (result) {
+        this.signatureResult = { signature: result.signature, digest: result.digest };
+        await this.loadSession(this.session.sessionId);
+      }
+    } catch (error: any) {
+      this.signatureError = error.error?.message || 'Failed to create signature';
+      console.error('❌ Failed to create signature:', error);
+    } finally {
+      this.creatingSignature = false;
+    }
+  }
+
+  async encrypt() {
+    if (!this.reconstructedWallet) return;
+    this.encryptionError = null;
+    this.encryptionCiphertext = null;
+    try {
+      const publicKey = this.reconstructedWallet.publicKey.substring(4); // Use uncompressed public key
+      this.encryptionCiphertext = await this.cryptoService.encryptMessage(this.encryptionPlaintext, publicKey);
+    } catch (error: any) {
+      console.error('Encryption failed:', error);
+      this.encryptionError = error.message || 'Encryption failed.';
+    }
+  }
+
+  async decrypt() {
+    if (!this.reconstructedWallet || !this.encryptionCiphertext) return;
+    this.encryptionError = null;
+    this.encryptionDecryptedtext = null;
+    try {
+      this.encryptionDecryptedtext = await this.cryptoService.decryptMessage(this.encryptionCiphertext, this.reconstructedWallet.privateKey);
+    } catch (error: any) {
+      console.error('Decryption failed:', error);
+      this.encryptionError = error.message || 'Decryption failed.';
     }
   }
 
@@ -545,61 +701,20 @@ export class SessionDetailComponent implements OnInit {
 
   async generateKey() {
     if (!this.session) return;
-    
     this.generatingKey = true;
     try {
-      const response = await this.apiService.generateKey(this.session.sessionId, {
-        walletAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-        blockchain: 'ethereum'
-      }).toPromise();
+      const walletAddress = this.session.metadata?.walletAddress;
+      const blockchain = this.session.metadata?.blockchain;
       
-      if (response?.success) {
-        // Reload session to get updated status
-        await this.loadSession(this.session.sessionId);
-      }
-    } catch (error) {
-      console.error('Failed to generate key:', error);
+      await firstValueFrom(this.apiService.generateKey(this.session.sessionId, walletAddress, blockchain));
+      // Reload session to get updated status
+      await this.loadSession(this.session.sessionId);
+      this.snackBar.open('Key generation initiated successfully!', 'Close', { duration: 3000 });
+    } catch (error: any) {
+      console.error('❌ Key generation failed:', error);
+      this.snackBar.open(`Key generation failed: ${error.message}`, 'Close', { duration: 5000 });
     } finally {
       this.generatingKey = false;
-    }
-  }
-
-  async reconstructKey() {
-    if (!this.session) return;
-    
-    this.reconstructingKey = true;
-    try {
-      const response = await this.apiService.reconstructKey(this.session.sessionId).toPromise();
-      
-      if (response?.success) {
-        // Reload session to get updated status
-        await this.loadSession(this.session.sessionId);
-      }
-    } catch (error) {
-      console.error('Failed to reconstruct key:', error);
-    } finally {
-      this.reconstructingKey = false;
-    }
-  }
-
-  async createSignature() {
-    if (!this.session) return;
-    
-    const message = prompt('Enter message to sign:');
-    if (!message) return;
-    
-    this.creatingSignature = true;
-    try {
-      const response = await this.apiService.createSignature(this.session.sessionId, { message }).toPromise();
-      
-      if (response?.success) {
-        // Reload session to get updated status
-        await this.loadSession(this.session.sessionId);
-      }
-    } catch (error) {
-      console.error('Failed to create signature:', error);
-    } finally {
-      this.creatingSignature = false;
     }
   }
 } 

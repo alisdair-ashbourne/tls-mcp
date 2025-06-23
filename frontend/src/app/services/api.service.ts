@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface Party {
   name: string;
@@ -8,6 +9,7 @@ export interface Party {
 }
 
 export interface Session {
+  _id: string;
   sessionId: string;
   status: string;
   operation: string;
@@ -29,6 +31,7 @@ export interface Session {
   };
   createdAt: Date;
   expiresAt: Date;
+  communicationPubKeys?: { partyId: number, publicKey: string }[];
 }
 
 export interface SessionSummary {
@@ -94,78 +97,81 @@ export interface WebhookLog {
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:3000/api';
+  private apiUrl = 'http://localhost:3000/api'; // Point to the correct backend server
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
-  // Session Management
-  createSession(operation: string, parties: Party[], metadata?: any): Observable<{ success: boolean; sessionId: string; status: string; message: string }> {
-    return this.http.post<{ success: boolean; sessionId: string; status: string; message: string }>(
-      `${this.baseUrl}/sessions`,
-      { operation, parties, metadata }
-    );
+  getSessions(): Observable<Session[]> {
+    return this.http.get<{success: boolean, sessions: Session[], count: number}>(`${this.apiUrl}/sessions`)
+      .pipe(
+        map(response => response.sessions)
+      );
   }
 
-  getSessions(status?: string, limit?: number): Observable<{ success: boolean; sessions: SessionSummary[]; count: number }> {
-    let params = '';
-    if (status) params += `status=${status}`;
-    if (limit) params += params ? `&limit=${limit}` : `limit=${limit}`;
+  getSession(sessionId: string): Observable<Session> {
+    return this.http.get<{success: boolean, session: Session}>(`${this.apiUrl}/sessions/${sessionId}`)
+      .pipe(
+        map(response => response.session)
+      );
+  }
+
+  createSession(sessionConfig: any): Observable<Session> {
+    return this.http.post<{success: boolean, sessionId: string, status: string, message: string}>(`${this.apiUrl}/sessions`, sessionConfig)
+      .pipe(
+        map(response => ({ sessionId: response.sessionId, status: response.status } as Session))
+      );
+  }
+
+  addCommunicationPublicKey(sessionId: string, partyId: number, publicKey: string): Observable<Session> {
+    return this.http.post<{success: boolean, session: Session}>(`${this.apiUrl}/sessions/${sessionId}/parties/${partyId}/communication-key`, { publicKey })
+      .pipe(
+        map(response => response.session)
+      );
+  }
+
+  joinSession(sessionId: string, walletAddress: string): Observable<any> {
+    return this.http.post<{success: boolean, partyId: number, status: string}>(`${this.apiUrl}/sessions/${sessionId}/join`, { walletAddress })
+      .pipe(
+        map(response => response)
+      );
+  }
+
+  generateKey(sessionId: string, walletAddress?: string, blockchain?: string): Observable<any> {
+    const body: any = {};
+    if (walletAddress) body.walletAddress = walletAddress;
+    if (blockchain) body.blockchain = blockchain;
     
-    return this.http.get<{ success: boolean; sessions: SessionSummary[]; count: number }>(
-      `${this.baseUrl}/sessions${params ? '?' + params : ''}`
-    );
+    return this.http.post<{success: boolean, message: string}>(`${this.apiUrl}/sessions/${sessionId}/generate-key`, body)
+      .pipe(
+        map(response => response)
+      );
   }
 
-  getSession(sessionId: string): Observable<{ success: boolean; session: Session }> {
-    return this.http.get<{ success: boolean; session: Session }>(
-      `${this.baseUrl}/sessions/${sessionId}`
-    );
+  reconstructKey(sessionId: string): Observable<any> {
+    return this.http.post<{success: boolean, sessionId: string, walletAddress: string, privateKey: string, status: string}>(`${this.apiUrl}/sessions/${sessionId}/reconstruct-key`, {})
+      .pipe(
+        map(response => response)
+      );
   }
 
-  // Key Generation
-  generateKey(sessionId: string, request: KeyGenerationRequest): Observable<{ success: boolean } & KeyGenerationResponse> {
-    return this.http.post<{ success: boolean } & KeyGenerationResponse>(
-      `${this.baseUrl}/sessions/${sessionId}/generate-key`,
-      request
-    );
+  createSignature(sessionId: string, message: string): Observable<any> {
+    return this.http.post<{success: boolean, signature: string, digest: string}>(`${this.apiUrl}/sessions/${sessionId}/sign`, { message })
+      .pipe(
+        map(response => response)
+      );
   }
 
-  // Key Reconstruction
-  reconstructKey(sessionId: string): Observable<{ success: boolean; sessionId: string; walletAddress: string; privateKey: string; status: string }> {
-    return this.http.post<{ success: boolean; sessionId: string; walletAddress: string; privateKey: string; status: string }>(
-      `${this.baseUrl}/sessions/${sessionId}/reconstruct-key`,
-      {}
-    );
+  getWebhookLogs(sessionId: string): Observable<WebhookLog[]> {
+    return this.http.get<{success: boolean, logs: WebhookLog[], count: number}>(`${this.apiUrl}/webhook-logs/${sessionId}`)
+      .pipe(
+        map(response => response.logs)
+      );
   }
 
-  // Signature Creation
-  createSignature(sessionId: string, request: SignatureRequest): Observable<{ success: boolean } & SignatureResponse> {
-    return this.http.post<{ success: boolean } & SignatureResponse>(
-      `${this.baseUrl}/sessions/${sessionId}/sign`,
-      request
-    );
-  }
-
-  // Webhook Logs
-  getWebhookLogs(sessionId: string, limit?: number): Observable<{ success: boolean; logs: WebhookLog[]; count: number }> {
-    const params = limit ? `?limit=${limit}` : '';
-    return this.http.get<{ success: boolean; logs: WebhookLog[]; count: number }>(
-      `${this.baseUrl}/webhook-logs/${sessionId}${params}`
-    );
-  }
-
-  // Health Check
-  getHealth(): Observable<{ status: string; timestamp: string; uptime: number; environment: string }> {
-    return this.http.get<{ status: string; timestamp: string; uptime: number; environment: string }>(
-      'http://localhost:3000/health'
-    );
-  }
-
-  // Party Response (for testing)
-  sendPartyResponse(sessionId: string, partyId: number, event: string, payload: any): Observable<{ success: boolean; sessionStatus: string }> {
-    return this.http.post<{ success: boolean; sessionStatus: string }>(
-      `${this.baseUrl}/webhook/${sessionId}/${partyId}`,
-      { event, payload }
-    );
+  getWebhookEvents(sessionId: string, partyId: number): Observable<any[]> {
+    return this.http.get<{success: boolean, events: any[]}>(`${this.apiUrl}/sessions/${sessionId}/parties/${partyId}/webhook-events`)
+      .pipe(
+        map(response => response.events)
+      );
   }
 } 
