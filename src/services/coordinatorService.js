@@ -207,6 +207,13 @@ class CoordinatorService {
         console.log(`📝 Updated party ${partyId} status to 'share_committed'`);
         break;
 
+      case 'share_committed':
+        party.status = 'share_committed';
+        party.shareCommitment = payload.commitment;
+        party.nonce = payload.nonce;
+        console.log(`📝 Updated party ${partyId} status to 'share_committed'`);
+        break;
+
       case 'signature_component':
         // Store signature component temporarily for combination
         if (!session.signatureComponents) {
