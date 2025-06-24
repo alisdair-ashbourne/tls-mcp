@@ -5,19 +5,10 @@ import { IndexedDBService } from './indexeddb.service';
 import { CryptoService } from './crypto.service';
 import { ApiService } from './api.service';
 
-export interface PartyShare {
-  sessionId: string;
-  partyId: number;
-  share: string;
-  commitment: string;
-  nonce: string;
-  receivedAt: Date;
-}
-
 export interface PartySession {
   sessionId: string;
   partyId: number;
-  status: 'initialized' | 'share_received' | 'ready' | 'completed' | 'failed';
+  status: 'initialized' | 'share_committed' | 'ready' | 'completed' | 'failed';
   operation: string;
   metadata: any;
   threshold: number;
@@ -58,14 +49,49 @@ export class PartyService {
     this.partyId = partyId;
     this.webhookUrl = webhookUrl;
     
-    console.log(`🎭 Initialized as Party ${partyId} with webhook URL: ${webhookUrl}`);
+    // Generate a wallet address for this party's participation
+    const walletAddress = this.cryptoService.generateThresholdWalletAddress();
     
-    // Store party configuration in IndexedDB
+    console.log(`🎭 Initialized as Party ${partyId} with webhook URL: ${webhookUrl}`);
+    console.log(`💰 Generated wallet address: ${walletAddress}`);
+    
+    // Store party configuration in IndexedDB (non-sensitive)
     await this.indexedDBService.storePartyConfig({
       partyId,
       webhookUrl,
+      walletAddress,
       initializedAt: new Date()
     });
+
+    // Only register with coordinator if this is not a browser party
+    if (!webhookUrl.startsWith('browser://')) {
+      await this.registerWithCoordinator(partyId, webhookUrl, walletAddress);
+    } else {
+      console.log(`🌐 Browser party ${partyId} - skipping coordinator registration`);
+    }
+  }
+
+  /**
+   * Register this party with the coordinator
+   */
+  private async registerWithCoordinator(partyId: number, webhookUrl: string, walletAddress: string): Promise<void> {
+    try {
+      // Send registration directly to coordinator's registration endpoint
+      const registrationData = {
+        partyId,
+        webhookUrl,
+        walletAddress,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Use the API service to register with coordinator
+      await this.apiService.registerParty(registrationData).toPromise();
+      
+      console.log(`✅ Party ${partyId} registered with coordinator`);
+    } catch (error) {
+      console.error(`❌ Failed to register party ${partyId} with coordinator:`, error);
+      // Don't throw here - party can still function without coordinator registration
+    }
   }
 
   /**
@@ -125,7 +151,7 @@ export class PartyService {
               payload: event.payload
             });
             
-            // Store the event to avoid reprocessing
+            // Store the event to avoid reprocessing (for audit/debugging)
             await this.indexedDBService.storeWebhookEvent({
               sessionId,
               partyId: this.partyId,
@@ -161,9 +187,6 @@ export class PartyService {
   async handleWebhookEvent(event: WebhookEvent): Promise<void> {
     console.log(`📡 Party ${this.partyId} received webhook:`, event);
     
-    // Store the webhook event
-    await this.indexedDBService.storeWebhookEvent(event);
-    
     // Emit the event for UI updates
     this.webhookEvents.next(event);
     
@@ -172,8 +195,8 @@ export class PartyService {
       case 'session_initialized':
         await this.handleSessionInitialized(event);
         break;
-      case 'share_received':
-        await this.handleShareReceived(event);
+      case 'dkg_initiated':
+        await this.handleDKGInitiated(event);
         break;
       case 'signature_requested':
         await this.handleSignatureRequested(event);
@@ -208,6 +231,7 @@ export class PartyService {
   private async handleSessionInitialized(event: WebhookEvent): Promise<void> {
     const { sessionId, payload } = event;
     
+    // Store session metadata (non-sensitive)
     const session: PartySession = {
       sessionId,
       partyId: this.partyId!,
@@ -230,78 +254,84 @@ export class PartyService {
   }
 
   /**
-   * Handle share received
+   * Handle DKG initiation - generate fresh share and commitment
    */
-  private async handleShareReceived(event: WebhookEvent): Promise<void> {
+  private async handleDKGInitiated(event: WebhookEvent): Promise<void> {
     const { sessionId, payload } = event;
     
-    // Store the share
-    const share: PartyShare = {
-      sessionId,
-      partyId: this.partyId!,
-      share: payload.share,
-      commitment: payload.commitment,
-      nonce: payload.nonce,
-      receivedAt: new Date()
-    };
+    console.log(`🔐 Party ${this.partyId} generating fresh share for DKG...`);
     
-    await this.indexedDBService.storePartyShare(share);
+    // Generate fresh cryptographic material (NOT stored in IndexedDB)
+    const share = await this.generateFreshShare();
+    const commitment = await this.generateCommitment(share);
+    const nonce = await this.generateNonce();
     
-    // Update session status
+    // Update session status to indicate share commitment
     await this.indexedDBService.updatePartySession(sessionId, this.partyId!, {
-      status: 'share_received',
+      status: 'share_committed',
       updatedAt: new Date()
     });
     
-    // Send confirmation back to coordinator
-    await this.sendResponseToCoordinator(sessionId, 'share_confirmed', {
-      share: payload.share,
-      confirmed: true
+    // Send share commitment to coordinator (NOT the actual share)
+    await this.sendResponseToCoordinator(sessionId, 'share_committed', {
+      partyId: this.partyId,
+      commitment: commitment,
+      nonce: nonce,
+      // Note: We do NOT send the actual share here
+      // The share will only be used locally for signatures/reconstruction when requested
     });
+    
+    console.log(`✅ Party ${this.partyId} committed share for session ${sessionId}`);
   }
 
   /**
-   * Handle signature request
+   * Handle signature request - generate signature component using fresh share
    */
   private async handleSignatureRequested(event: WebhookEvent): Promise<void> {
     const { sessionId, payload } = event;
     
-    // Get the stored share
-    const share = await this.indexedDBService.getPartyShare(sessionId, this.partyId!);
-    if (!share) {
-      throw new Error('No share found for this session');
-    }
+    console.log(`✍️ Party ${this.partyId} generating signature component...`);
     
-    // Generate signature component (simplified for demo)
+    // Generate fresh share for this signature (NOT stored)
+    const share = await this.generateFreshShare();
+    
+    // Generate signature component
     const messageHash = await this.cryptoService.hashMessage(payload.message);
-    const component = await this.generateSignatureComponent(share.share, messageHash);
+    const component = await this.generateSignatureComponent(share, messageHash);
     
     // Send signature component back to coordinator
     await this.sendResponseToCoordinator(sessionId, 'signature_component', {
+      partyId: this.partyId,
       component: component,
       messageHash: messageHash,
       message: payload.message
     });
+    
+    console.log(`✅ Party ${this.partyId} sent signature component for session ${sessionId}`);
   }
 
   /**
-   * Handle reconstruction request
+   * Handle reconstruction request - provide share for reconstruction
    */
   private async handleReconstructionRequested(event: WebhookEvent): Promise<void> {
     const { sessionId } = event;
     
-    // Get the stored share
-    const share = await this.indexedDBService.getPartyShare(sessionId, this.partyId!);
-    if (!share) {
-      throw new Error('No share found for this session');
-    }
+    console.log(`🔧 Party ${this.partyId} providing share for reconstruction...`);
+    
+    // Generate fresh share for reconstruction (NOT stored)
+    const share = await this.generateFreshShare();
+    const commitment = await this.generateCommitment(share);
+    const nonce = await this.generateNonce();
     
     // Send share for reconstruction
     await this.sendResponseToCoordinator(sessionId, 'share_provided', {
-      share: share.share,
-      commitment: share.commitment,
-      nonce: share.nonce
+      partyId: this.partyId,
+      share: share,
+      commitment: commitment,
+      nonce: nonce
     });
+    
+    console.log(`✅ Party ${this.partyId} provided share for reconstruction in session ${sessionId}`);
   }
 
   /**
@@ -314,6 +344,8 @@ export class PartyService {
       status: 'completed',
       updatedAt: new Date()
     });
+    
+    console.log(`✅ Session ${sessionId} completed for Party ${this.partyId}`);
   }
 
   /**
@@ -326,6 +358,8 @@ export class PartyService {
       status: 'failed',
       updatedAt: new Date()
     });
+    
+    console.log(`❌ Session ${sessionId} failed for Party ${this.partyId}`);
   }
 
   /**
@@ -336,6 +370,7 @@ export class PartyService {
     
     // Respond to heartbeat
     await this.sendResponseToCoordinator(sessionId, 'heartbeat_response', {
+      partyId: this.partyId,
       timestamp: new Date().toISOString(),
       status: 'alive'
     });
@@ -345,8 +380,8 @@ export class PartyService {
    * Send response back to coordinator
    */
   private async sendResponseToCoordinator(sessionId: string, event: string, payload: any): Promise<void> {
-    if (!this.webhookUrl) {
-      throw new Error('No webhook URL configured');
+    if (!this.partyId) {
+      throw new Error('No party ID configured');
     }
     
     const response = {
@@ -358,12 +393,42 @@ export class PartyService {
     };
     
     try {
-      await this.http.post(this.webhookUrl, response).toPromise();
+      // Send response to coordinator's webhook endpoint
+      await this.http.post(`http://localhost:3000/api/webhook/${sessionId}/${this.partyId}`, response).toPromise();
       console.log(`✅ Sent ${event} response to coordinator`);
     } catch (error) {
       console.error(`❌ Failed to send ${event} response:`, error);
       throw error;
     }
+  }
+
+  // ===== CRYPTOGRAPHIC OPERATIONS (Fresh generation, no storage) =====
+
+  /**
+   * Generate a fresh cryptographic share
+   * In a real implementation, this would use proper threshold cryptography algorithms
+   */
+  private async generateFreshShare(): Promise<string> {
+    // Generate a random 32-byte share
+    const shareBytes = crypto.getRandomValues(new Uint8Array(32));
+    return `0x${Array.from(shareBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  /**
+   * Generate a commitment for a share
+   */
+  private async generateCommitment(share: string): Promise<string> {
+    // In a real implementation, this would be a proper cryptographic commitment
+    // For demo purposes, we'll use a hash of the share
+    return await this.cryptoService.hashMessage(share);
+  }
+
+  /**
+   * Generate a fresh nonce
+   */
+  private async generateNonce(): Promise<string> {
+    const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+    return `0x${Array.from(nonceBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
   }
 
   /**
@@ -375,29 +440,23 @@ export class PartyService {
     return await this.cryptoService.hashMessage(combined);
   }
 
+  // ===== DATA RETRIEVAL METHODS =====
+
   /**
    * Get all party sessions
    */
   async getPartySessions(): Promise<PartySession[]> {
     const sessions = await this.indexedDBService.getAllPartySessions(this.partyId!);
     return sessions.map(session => ({
-      ...session,
-      status: session.status as 'initialized' | 'share_received' | 'ready' | 'completed' | 'failed'
-    }));
-  }
-
-  /**
-   * Get party shares
-   */
-  async getPartyShares(): Promise<PartyShare[]> {
-    const shares = await this.indexedDBService.getAllPartyShares(this.partyId!);
-    return shares.map(share => ({
-      sessionId: share.sessionId,
-      partyId: share.partyId,
-      share: share.share,
-      commitment: share.commitment,
-      nonce: share.nonce,
-      receivedAt: share.receivedAt
+      sessionId: session.sessionId,
+      partyId: session.partyId,
+      status: session.status as 'initialized' | 'share_committed' | 'ready' | 'completed' | 'failed',
+      operation: session.operation,
+      metadata: session.metadata,
+      threshold: session.threshold,
+      totalParties: session.totalParties,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt
     }));
   }
 

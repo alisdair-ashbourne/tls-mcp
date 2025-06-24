@@ -1,0 +1,205 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>TLS-MCP Dashboard</h1>
+    <p>Manage your threshold cryptography sessions and monitor system status</p>
+  </div>
+
+  <!-- System Status -->
+  <mat-card class="status-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>monitor</mat-icon>
+        System Status
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="status-grid">
+        <div class="status-item">
+          <mat-icon [class]="coordinatorHealthy ? 'online' : 'offline'">
+            {{ coordinatorHealthy ? 'check_circle' : 'error' }}
+          </mat-icon>
+          <div class="status-info">
+            <span class="label">Backend</span>
+            <span class="value">{{ coordinatorHealthy ? 'Online' : 'Offline' }}</span>
+          </div>
+        </div>
+        <div class="status-item">
+          <mat-icon class="online">check_circle</mat-icon>
+          <div class="status-info">
+            <span class="label">Frontend</span>
+            <span class="value">Online</span>
+          </div>
+        </div>
+        <div class="status-item">
+          <mat-icon class="online">check_circle</mat-icon>
+          <div class="status-info">
+            <span class="label">IndexedDB</span>
+            <span class="value">Ready</span>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Quick Actions -->
+  <mat-card class="actions-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>flash_on</mat-icon>
+        Quick Actions
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="actions-grid">
+        <button mat-raised-button color="primary" routerLink="/key-generation">
+          <mat-icon>add</mat-icon>
+          Create New Session
+        </button>
+        <button mat-raised-button color="accent" routerLink="/sessions">
+          <mat-icon>list</mat-icon>
+          View All Sessions
+        </button>
+        <button mat-raised-button color="warn" (click)="resetIndexedDB()">
+          <mat-icon>clear_all</mat-icon>
+          Clear All Data
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Recent Sessions -->
+  <mat-card class="sessions-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>history</mat-icon>
+        Recent Sessions
+      </mat-card-title>
+      <mat-card-subtitle>Your latest TLS-MCP sessions</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div *ngIf="loading" class="loading">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <p>Loading sessions...</p>
+      </div>
+
+      <div *ngIf="!loading && recentSessions.length > 0" class="sessions-list">
+        <div *ngFor="let session of recentSessions" class="session-item" [routerLink]="['/sessions', session.sessionId]">
+          <div class="session-info">
+            <div class="session-header">
+              <h3>{{ session.sessionId }}</h3>
+              <mat-chip color="primary" selected>
+                <mat-icon>{{ getStatusIcon(session.status) }}</mat-icon>
+                {{ session.status }}
+              </mat-chip>
+            </div>
+            <div class="session-details">
+              <span class="operation">
+                <mat-icon>vpn_key</mat-icon>
+                {{ session.operation === 'key_generation' ? 'Distributed Key Generation' : 'Threshold Signature' }}
+              </span>
+              <span class="created">
+                <mat-icon>schedule</mat-icon>
+                {{ session.createdAt | date:'short' }}
+              </span>
+            </div>
+          </div>
+          <mat-icon class="arrow">arrow_forward_ios</mat-icon>
+        </div>
+      </div>
+
+      <div *ngIf="!loading && recentSessions.length === 0" class="no-sessions">
+        <mat-icon>inbox</mat-icon>
+        <p>No sessions found</p>
+        <button mat-raised-button color="primary" routerLink="/key-generation">
+          Create Your First Session
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- IndexedDB Management -->
+  <mat-card class="storage-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>storage</mat-icon>
+        Local Storage Management
+      </mat-card-title>
+      <mat-card-subtitle>Manage data stored in your browser's IndexedDB</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="storage-info">
+        <div class="storage-item">
+          <span class="label">Sessions:</span>
+          <span class="value">{{ indexedDBData.sessions?.count || 0 }}</span>
+        </div>
+        <div class="storage-item">
+          <span class="label">Party Configurations:</span>
+          <span class="value">{{ indexedDBData.partyConfigs?.count || 0 }}</span>
+        </div>
+        <div class="storage-item">
+          <span class="label">Party Sessions:</span>
+          <span class="value">{{ indexedDBData.partySessions?.count || 0 }}</span>
+        </div>
+        <div class="storage-item">
+          <span class="label">Webhook Events:</span>
+          <span class="value">{{ indexedDBData.webhookEvents?.count || 0 }}</span>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="storage-actions">
+        <button mat-button color="warn" (click)="resetIndexedDB()">
+          <mat-icon>delete_sweep</mat-icon>
+          Clear All Data
+        </button>
+      </div>
+
+      <div class="security-notice">
+        <mat-icon>security</mat-icon>
+        <div class="notice-content">
+          <h4>Security Notice</h4>
+          <p>This system stores only non-sensitive metadata locally. All cryptographic material is generated fresh per operation and never stored. Your private keys and shares remain secure in memory only.</p>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- System Information -->
+  <mat-card class="info-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>info</mat-icon>
+        System Information
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">Architecture:</span>
+          <span class="value">True Threshold Cryptography</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Key Escrow:</span>
+          <span class="value">None</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Coordinator Role:</span>
+          <span class="value">Messenger Only</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Cryptography:</span>
+          <span class="value">Client-Side</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Storage:</span>
+          <span class="value">Local Only</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Network:</span>
+          <span class="value">Webhook-Based</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div> 

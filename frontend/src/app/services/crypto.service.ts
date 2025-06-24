@@ -36,6 +36,31 @@ export class CryptoService {
   }
 
   /**
+   * Generates a wallet address for this party's participation in threshold operations.
+   * This address will be derived from the party's share during DKG.
+   * @returns A new wallet address for threshold operations.
+   */
+  generateThresholdWalletAddress(): string {
+    const wallet = this.generateNewWallet();
+    return wallet.address;
+  }
+
+  /**
+   * Derives a wallet address from a share (for threshold wallet reconstruction).
+   * In a real implementation, this would use the actual threshold scheme.
+   * For now, we'll create a deterministic address from the share.
+   * @param share The share to derive the address from.
+   * @returns A wallet address derived from the share.
+   */
+  deriveAddressFromShare(share: string): string {
+    // In a real threshold implementation, this would use the actual threshold scheme
+    // to reconstruct the private key and derive the address.
+    // For now, we'll create a deterministic address from the share hash.
+    const wallet = new Wallet(share);
+    return wallet.address;
+  }
+
+  /**
    * Gets the public key in the format expected by eccrypto.
    * @param wallet The wallet instance.
    * @returns The public key as a hex string without '0x' prefix.

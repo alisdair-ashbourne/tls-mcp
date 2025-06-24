@@ -67,6 +67,10 @@ class PartySimulator {
             await this.handleSessionInitialized(sessionId, payload);
             break;
           
+          case 'dkg_initiated':
+            await this.handleDKGInitiated(sessionId, payload);
+            break;
+          
           case 'share_received':
             await this.handleShareReceived(sessionId, payload);
             break;
@@ -143,6 +147,37 @@ class PartySimulator {
       totalParties: payload.totalParties,
       createdAt: new Date()
     });
+  }
+
+  async handleDKGInitiated(sessionId, payload) {
+    console.log(`[Party ${PARTY_ID}] DKG initiated for session ${sessionId}`);
+    
+    // Generate fresh cryptographic material (simplified for PoC)
+    const share = this.generateRandomShare();
+    const commitment = this.generateCommitment(share);
+    const nonce = this.generateNonce();
+    
+    // Store the share
+    this.shares.set(sessionId, {
+      share: share,
+      commitment: commitment,
+      nonce: nonce,
+      receivedAt: new Date()
+    });
+
+    // Update session status
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.status = 'share_committed';
+    }
+
+    // Send share commitment to coordinator (NOT the actual share)
+    await this.sendResponseToCoordinator(sessionId, 'share_committed', {
+      commitment: commitment,
+      nonce: nonce
+    });
+    
+    console.log(`[Party ${PARTY_ID}] Share committed for session ${sessionId}`);
   }
 
   async handleShareReceived(sessionId, payload) {
@@ -241,6 +276,21 @@ class PartySimulator {
     // In production, this would use proper threshold signature algorithms
     const combined = share + messageHash;
     return crypto.createHash('sha256').update(combined).digest('hex');
+  }
+
+  generateRandomShare() {
+    // Generate a random 32-byte share (simplified for PoC)
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  generateCommitment(share) {
+    // Generate a commitment to the share (simplified for PoC)
+    return crypto.createHash('sha256').update(share).digest('hex');
+  }
+
+  generateNonce() {
+    // Generate a random nonce
+    return crypto.randomBytes(16).toString('hex');
   }
 
   async sendResponseToCoordinator(sessionId, event, payload) {

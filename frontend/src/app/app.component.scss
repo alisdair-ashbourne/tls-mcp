@@ -1,0 +1,99 @@
+// Sidenav container
+mat-sidenav-container {
+  height: calc(100vh - 64px);
+}
+
+// Sidenav
+mat-sidenav {
+  width: 250px;
+  background-color: #1e1e1e;
+  border-right: 1px solid #333333;
+}
+
+// Navigation list
+.nav-list {
+  padding: 0;
+}
+
+// Navigation items
+.nav-item {
+  display: flex !important;
+  align-items: center !important;
+  padding: 12px 16px !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease !important;
+  border-radius: 0 !important;
+  margin: 4px 8px !important;
+  
+  &:hover {
+    background-color: rgba(7, 166, 115, 0.1) !important;
+    color: #07A673 !important;
+  }
+  
+  &.active {
+    background-color: rgba(7, 166, 115, 0.2) !important;
+    color: #07A673 !important;
+    border-left: 4px solid #07A673 !important;
+  }
+}
+
+// Material Design 3 specific overrides
+::ng-deep .nav-item {
+  .mdc-list-item__content {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 0 !important;
+  }
+  
+  .mdc-list-item__primary-text {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    color: inherit !important;
+    font-weight: 500 !important;
+  }
+  
+  mat-icon {
+    color: inherit !important;
+    margin-right: 0 !important;
+  }
+  
+  span {
+    color: inherit !important;
+    font-weight: 500 !important;
+  }
+}
+
+// Content area
+.content {
+  padding: 20px;
+  background-color: #121212;
+  min-height: calc(100vh - 64px);
+}
+
+// Toolbar
+mat-toolbar {
+  background-color: #07A673 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #333333;
+}
+
+// Active state override
+.active {
+  background-color: rgba(7, 166, 115, 0.2) !important;
+  color: #07A673 !important;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  mat-sidenav {
+    width: 200px;
+  }
+  
+  .nav-item {
+    padding: 10px 12px !important;
+    margin: 2px 4px !important;
+  }
+} 

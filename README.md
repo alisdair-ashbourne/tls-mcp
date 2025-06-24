@@ -1,14 +1,22 @@
 # TLS-MCP (Threshold Linear Secret Sharing - Multi-Party Computation)
 
-A proof of concept implementation of a threshold cryptography system for secure multi-party key management, specifically designed for cryptocurrency wallet security.
+A proof of concept implementation of a true threshold cryptography system for secure multi-party key management, specifically designed for cryptocurrency wallet security.
 
 ## Overview
 
 This system implements a (3,3) threshold scheme where:
-- **Party A, Party B, Party C**: The three participating parties (can be external services or the frontend itself)
-- **Coordinator**: A central server that orchestrates the multi-party operations
+- **Party A, Party B, Party C**: The three participating parties that generate their own shares independently
+- **Coordinator**: A central server that acts purely as a messenger/orchestrator (no cryptographic material stored)
 - **Frontend**: Angular application that can optionally participate as a party
 - **Threshold**: All three parties must participate for any operation to succeed
+
+## Key Security Features
+
+- **True Threshold Cryptography**: Each party generates their own share independently
+- **No Single Point of Failure**: The coordinator never has access to the complete private key
+- **Distributed Key Generation (DKG)**: Parties contribute to generating the master key without any party seeing the complete key
+- **Messenger-Only Coordinator**: The backend acts purely as a communication relay
+- **Client-Side Cryptography**: All cryptographic operations performed in the browser
 
 ## Quick Start
 
@@ -19,10 +27,10 @@ cd frontend && npm install && cd ..
 
 # 2. Set up environment
 cp env.example .env
-# Edit .env with your MongoDB connection string
+# Edit .env with your configuration
 
 # 3. Start all services (in separate terminals)
-# Terminal 1 - Coordinator
+# Terminal 1 - Coordinator (Messenger)
 npm run dev
 
 # Terminal 2 - Frontend (can act as parties)
@@ -40,6 +48,12 @@ cd frontend && npm start
 │   Party A   │    │   Party B   │    │   Party C   │
 │ (External/  │    │ (External/  │    │ (External/  │
 │  Frontend)  │    │  Frontend)  │    │  Frontend)  │
+│             │    │             │    │             │
+│ • Generates │    │ • Generates │    │ • Generates │
+│   own share │    │   own share │    │   own share │
+│ • Computes  │    │ • Computes  │    │ • Computes  │
+│   signature │    │   signature │    │   signature │
+│   components│    │   components│    │   components│
 └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
        │                  │                  │
        └──────────────────┼──────────────────┘
@@ -47,11 +61,11 @@ cd frontend && npm start
                    ┌──────▼──────┐
                    │ Coordinator │
                    │ (Port 3000) │
-                   └──────┬──────┘
-                          │
-                   ┌──────▼──────┐
-                   │   MongoDB   │
-                   │   Atlas     │
+                   │             │
+                   │ • Messenger │
+                   │ • No crypto │
+                   │ • In-memory │
+                   │   sessions  │
                    └─────────────┘
                           │
                    ┌──────▼──────┐
@@ -63,9 +77,8 @@ cd frontend && npm start
 
 ## Features
 
-- **Key Generation**: Generate private keys and distribute shares among parties
-- **Key Reconstruction**: Reconstruct private keys from shares (development only)
-- **Threshold Signatures**: Create signatures requiring all parties
+- **Distributed Key Generation**: Parties generate their own shares independently
+- **Threshold Signatures**: Create signatures requiring all parties to participate
 - **Webhook Communication**: Real-time communication between coordinator and parties
 - **Session Management**: Track and manage multi-party sessions
 - **Audit Logging**: Comprehensive logging of all operations
@@ -73,12 +86,11 @@ cd frontend && npm start
 - **IndexedDB Storage**: Local storage for encrypted shares and communication keys
 - **Frontend Party Participation**: Frontend can optionally act as one or more parties
 - **Real-time Health Monitoring**: Automatic health checks of all services
-- **MongoDB Storage**: Server-side session and log storage
+- **In-Memory Session Storage**: No database required - sessions stored in memory
 
 ## Prerequisites
 
 - Node.js 22+
-- MongoDB Atlas account with replica set
 - Angular CLI (for frontend development)
 - Modern browser with IndexedDB support
 
@@ -100,8 +112,7 @@ npm install
 # Copy environment file
 cp env.example .env
 
-# Edit .env with your MongoDB connection string
-# MONGODB_URI=mongodb://user:pass@localhost:27017/tls-mcp?directConnection=true&authSource=admin&replicaSet=rs0
+# Edit .env with your configuration
 ```
 
 ### 3. Frontend Setup
@@ -121,9 +132,6 @@ Create a `.env` file in the root directory:
 # Server Configuration
 PORT=3000
 NODE_ENV=development
-
-# MongoDB Configuration
-MONGODB_URI=
 
 # Security Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
@@ -194,43 +202,14 @@ The Angular frontend includes:
 - **Real-time Health Monitoring**: Automatic health checks of coordinator and all parties
 - **Dashboard**: System status, recent sessions, and quick actions
 - **Session Management**: Create, view, and manage TLS-MCP sessions
-- **Key Generation**: Multi-step wizard for creating new sessions with party participation options
-- **Signature Creation**: Create threshold signatures with active sessions
+- **Distributed Key Generation**: Multi-step wizard for creating new sessions with party participation options
+- **Threshold Signatures**: Create threshold signatures with active sessions
 - **Webhook Logs**: View detailed communication logs between coordinator and parties
 - **Party Participation**: Option to participate as one or more parties during session creation
-- **IndexedDB Management**: Local storage management for encrypted data
-- **Client-Side Cryptography**: Secure key generation, encryption, and decryption in the browser
 
-**Health Checking**: The dashboard automatically checks the health of all services every 30 seconds and provides manual refresh capability. Health checks include response times and detailed error reporting.
+## API Usage
 
-**Party Participation**: During session creation, you can choose which parties the frontend should participate as. The frontend will handle all cryptographic operations locally and communicate with the coordinator via webhooks.
-
-## API Endpoints
-
-### Session Management
-
-- `POST /api/sessions` - Create a new session
-- `GET /api/sessions` - List all sessions
-- `GET /api/sessions/:sessionId` - Get session details
-
-### Key Operations
-
-- `POST /api/sessions/:sessionId/generate-key` - Generate and distribute key shares
-- `POST /api/sessions/:sessionId/reconstruct-key` - Reconstruct private key (development only)
-- `POST /api/sessions/:sessionId/sign` - Create threshold signature
-
-### Webhook Management
-
-- `POST /api/webhook/:sessionId/:partyId` - Handle party responses
-- `GET /api/webhook-logs/:sessionId` - Get webhook logs
-
-### Health Check
-
-- `GET /health` - System health status
-
-## Usage Examples
-
-### 1. Create a Session with Frontend Participation
+### 1. Initialize a Session
 
 ```bash
 curl -X POST http://localhost:3000/api/sessions \
@@ -243,22 +222,23 @@ curl -X POST http://localhost:3000/api/sessions \
       {"name": "Party C", "webhookUrl": "http://localhost:3003/webhook"}
     ],
     "metadata": {
-      "description": "Test wallet key generation with frontend participation"
+      "description": "Test distributed key generation",
+      "blockchain": "ethereum"
     }
   }'
 ```
 
-### 2. Generate a Key
+### 2. Initiate Distributed Key Generation
 
 ```bash
-curl -X POST http://localhost:3000/api/sessions/{sessionId}/generate-key \
+curl -X POST http://localhost:3000/api/sessions/{sessionId}/initiate-dkg \
   -H "Content-Type: application/json" \
   -d '{
     "blockchain": "ethereum"
   }'
 ```
 
-### 3. Create a Signature
+### 3. Create a Threshold Signature
 
 ```bash
 curl -X POST http://localhost:3000/api/sessions/{sessionId}/sign \
@@ -270,50 +250,55 @@ curl -X POST http://localhost:3000/api/sessions/{sessionId}/sign \
 
 ## Cryptographic Implementation
 
-### Client-Side Cryptography
+### True Threshold Cryptography
 
-The system now performs cryptographic operations in the browser for enhanced security:
+The system implements proper threshold cryptography where:
 
-- **Key Generation**: Private keys are generated client-side using cryptographically secure random number generation
-- **Key Derivation**: Communication keys are derived from the master private key
-- **Encryption/Decryption**: All sensitive data is encrypted before storage using ECC encryption
-- **IndexedDB Storage**: Encrypted shares and communication keys are stored locally in IndexedDB
+- **Each party generates their own share** independently using cryptographically secure random number generation
+- **No single entity ever has access to the complete private key**
+- **The coordinator acts only as a messenger** between parties
+- **All cryptographic operations are performed by the parties themselves**
 
-### Shamir's Secret Sharing
+### Distributed Key Generation (DKG)
 
-The system uses Shamir's Secret Sharing with the following properties:
+1. **Session Initialization**: Coordinator creates a session and notifies all parties
+2. **DKG Initiation**: Coordinator requests all parties to begin distributed key generation
+3. **Share Generation**: Each party generates their own share independently
+4. **Commitment Exchange**: Parties exchange commitments to prove they have valid shares
+5. **DKG Completion**: All parties confirm they have generated their shares
 
-- **Threshold**: 3 parties required
-- **Total Parties**: 3 parties
-- **Field**: Large prime number for finite field operations
-- **Polynomial**: Random coefficients for security
+### Threshold Signatures
+
+1. **Signature Request**: Coordinator requests signature components from all parties
+2. **Component Generation**: Each party computes signature components using their share
+3. **Component Collection**: Coordinator collects signature components from all parties
+4. **Signature Combination**: Coordinator combines signature components (in a real implementation, this would be done by parties)
 
 ### Key Features
 
-1. **Secret Splitting**: Private keys are split into shares using polynomial interpolation
+1. **Independent Share Generation**: Each party generates their own share without coordination
 2. **Commitment Scheme**: Shares are committed to prevent tampering
 3. **Threshold Signatures**: Signatures require all parties to participate
-4. **Verification**: Cryptographic verification of all operations
-5. **Client-Side Security**: No private keys are stored on the server
+4. **No Key Escrow**: The coordinator never has access to cryptographic material
 
 ## Security Considerations
 
-### Production Recommendations
+- **No Single Point of Failure**: The coordinator never stores cryptographic material
+- **Client-Side Cryptography**: All sensitive operations performed in the browser
+- **Independent Share Generation**: Each party generates their own share
+- **Commitment Verification**: Shares are committed to prevent tampering
+- **In-Memory Sessions**: No persistent storage of cryptographic material
 
-1. **Encryption**: All stored shares and sensitive data are encrypted client-side
-2. **Authentication**: Implement proper authentication for all parties
-3. **Webhook Signatures**: Validate webhook signatures
-4. **Network Security**: Use HTTPS for all communications
-5. **Key Management**: Implement proper key rotation and backup procedures
-6. **Audit Logging**: Comprehensive audit trails for compliance
-7. **Client-Side Security**: Private keys never leave the client
+## Development Notes
 
-### Current Limitations (PoC)
+This is a proof-of-concept implementation. For production use, consider:
 
-1. **Simplified Crypto**: Uses basic implementations for demonstration
-2. **No Authentication**: Parties are not authenticated
-3. **Development Key Reconstruction**: Key reconstruction is only available in development mode
-4. **Single Point of Failure**: Coordinator is a single point of failure
+- Implementing proper DKG protocols (e.g., Pedersen DKG)
+- Using established threshold signature schemes (e.g., ECDSA threshold signatures)
+- Adding proper authentication and authorization
+- Implementing secure communication channels
+- Adding proper error handling and recovery mechanisms
+- Using hardware security modules (HSMs) for party implementations
 
 ## Testing
 

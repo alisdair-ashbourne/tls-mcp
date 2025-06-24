@@ -12,8 +12,9 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ApiService, SessionSummary, SignatureResponse, Session } from '../../services/api.service';
+import { ApiService, SessionSummary, SignatureResponse } from '../../services/api.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-signature',
@@ -182,12 +183,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
                   <code class="value">{{ signatureResult.messageHash }}</code>
                 </div>
                 <div class="result-item">
-                  <span class="label">Signature:</span>
-                  <code class="value">{{ signatureResult.signature }}</code>
-                </div>
-                <div class="result-item">
-                  <span class="label">Participants:</span>
-                  <span class="value">{{ signatureResult.participants.join(', ') }}</span>
+                  <span class="label">Status:</span>
+                  <span class="value">{{ signatureResult.status }}</span>
                 </div>
                 <div class="result-item">
                   <span class="label">Session ID:</span>
@@ -497,7 +494,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 })
 export class SignatureComponent implements OnInit {
   loadingSessions = false;
-  activeSessions: Session[] = [];
+  activeSessions: SessionSummary[] = [];
   selectedSessionId: string | null = null;
   signatureForm: FormGroup;
   creatingSignature = false;
@@ -521,41 +518,39 @@ export class SignatureComponent implements OnInit {
   }
 
   async loadActiveSessions() {
+    this.loadingSessions = true;
     try {
-      const response = await this.apiService.getSessions().toPromise();
-      if (response) {
-        this.activeSessions = response.filter((s: Session) => s.status === 'active');
-      }
+      const response = await firstValueFrom(this.apiService.getSessions());
+      this.activeSessions = response.filter((s: SessionSummary) => s.status === 'active');
     } catch (error) {
-      console.error('Failed to load active sessions', error);
-      this.snackBar.open('Could not load active sessions.', 'Close', { duration: 3000 });
+      console.error('Failed to load sessions:', error);
+      this.error = 'Failed to load sessions';
+    } finally {
+      this.loadingSessions = false;
     }
   }
 
   selectSession(sessionId: string) {
     this.selectedSessionId = sessionId;
-    this.signatureResult = null;
-    this.error = null;
   }
 
-  getSelectedSession(): Session | undefined {
+  getSelectedSession(): SessionSummary | undefined {
     return this.activeSessions.find(s => s.sessionId === this.selectedSessionId);
   }
 
   getProgressColor(ready: number, total: number): string {
-    const percentage = (ready / total) * 100;
-    if (percentage === 100) return 'success';
-    if (percentage >= 66) return 'primary';
-    if (percentage >= 33) return 'accent';
+    const ratio = ready / total;
+    if (ratio >= 0.8) return 'primary';
+    if (ratio >= 0.5) return 'accent';
     return 'warn';
   }
 
-  getReadyPartiesCount(session: Session): number {
-    return session.parties?.filter(p => p.status === 'ready').length || 0;
+  getReadyPartiesCount(session: SessionSummary): number {
+    return session.readyParties;
   }
 
-  getTotalPartiesCount(session: Session): number {
-    return session.parties?.length || 0;
+  getTotalPartiesCount(session: SessionSummary): number {
+    return session.parties;
   }
 
   async onSubmit() {
@@ -589,18 +584,22 @@ export class SignatureComponent implements OnInit {
   }
 
   copySignature() {
-    if (this.signatureResult) {
-      const signatureData = {
-        message: this.signatureResult.message,
-        messageHash: this.signatureResult.messageHash,
-        signature: this.signatureResult.signature,
-        participants: this.signatureResult.participants,
-        sessionId: this.signatureResult.sessionId
-      };
-      
-      navigator.clipboard.writeText(JSON.stringify(signatureData, null, 2));
-      // You could add a snackbar notification here
-    }
+    if (!this.signatureResult) return;
+    
+    const signatureData = {
+      sessionId: this.signatureResult.sessionId,
+      status: this.signatureResult.status,
+      message: this.signatureResult.message,
+      messageHash: this.signatureResult.messageHash
+    };
+    
+    navigator.clipboard.writeText(JSON.stringify(signatureData, null, 2))
+      .then(() => {
+        this.snackBar.open('Signature data copied to clipboard!', 'Close', { duration: 3000 });
+      })
+      .catch(() => {
+        this.snackBar.open('Failed to copy signature data', 'Close', { duration: 3000 });
+      });
   }
 
   clearError() {

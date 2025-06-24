@@ -9,14 +9,11 @@ export interface Party {
 }
 
 export interface Session {
-  _id: string;
   sessionId: string;
   status: string;
   operation: string;
   messageHash?: string;
   signature?: string;
-  finalSignature?: any;
-  secret?: string;
   parties: Array<{
     partyId: number;
     partyName: string;
@@ -44,15 +41,12 @@ export interface SessionSummary {
   expiresAt: Date;
 }
 
-export interface KeyGenerationRequest {
-  walletAddress: string;
+export interface DkgRequest {
   blockchain?: string;
 }
 
-export interface KeyGenerationResponse {
+export interface DkgResponse {
   sessionId: string;
-  walletAddress: string;
-  blockchain: string;
   status: string;
   message: string;
 }
@@ -63,11 +57,9 @@ export interface SignatureRequest {
 
 export interface SignatureResponse {
   sessionId: string;
-  signature: string;
-  messageHash: string;
-  message: string;
-  participants: number[];
   status: string;
+  message: string;
+  messageHash?: string;
 }
 
 export interface WebhookLog {
@@ -75,34 +67,28 @@ export interface WebhookLog {
   partyId: number;
   direction: 'inbound' | 'outbound';
   event: string;
-  url?: string;
-  method?: string;
-  requestBody?: any;
-  responseBody?: any;
-  statusCode?: number;
-  headers?: any;
-  responseHeaders?: any;
-  duration?: number;
+  payload?: any;
   success: boolean;
-  error?: {
-    message: string;
-    code: string;
-    stack: string;
-  };
-  retryCount: number;
   timestamp: Date;
+}
+
+export interface PartyRegistration {
+  partyId: number;
+  webhookUrl: string;
+  walletAddress: string;
+  timestamp: string;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
-  private apiUrl = 'http://localhost:3000/api'; // Point to the correct backend server
+  private apiUrl = 'http://localhost:3000/api';
 
   constructor(private http: HttpClient) { }
 
-  getSessions(): Observable<Session[]> {
-    return this.http.get<{success: boolean, sessions: Session[], count: number}>(`${this.apiUrl}/sessions`)
+  getSessions(): Observable<SessionSummary[]> {
+    return this.http.get<{success: boolean, sessions: SessionSummary[], count: number}>(`${this.apiUrl}/sessions`)
       .pipe(
         map(response => response.sessions)
       );
@@ -115,49 +101,47 @@ export class ApiService {
       );
   }
 
-  createSession(sessionConfig: any): Observable<Session> {
+  createSession(sessionConfig: any): Observable<{sessionId: string, status: string, message: string}> {
     return this.http.post<{success: boolean, sessionId: string, status: string, message: string}>(`${this.apiUrl}/sessions`, sessionConfig)
       .pipe(
-        map(response => ({ sessionId: response.sessionId, status: response.status } as Session))
+        map(response => ({ 
+          sessionId: response.sessionId, 
+          status: response.status,
+          message: response.message
+        }))
       );
   }
 
-  addCommunicationPublicKey(sessionId: string, partyId: number, publicKey: string): Observable<Session> {
-    return this.http.post<{success: boolean, session: Session}>(`${this.apiUrl}/sessions/${sessionId}/parties/${partyId}/communication-key`, { publicKey })
-      .pipe(
-        map(response => response.session)
-      );
-  }
-
-  joinSession(sessionId: string, walletAddress: string): Observable<any> {
-    return this.http.post<{success: boolean, partyId: number, status: string}>(`${this.apiUrl}/sessions/${sessionId}/join`, { walletAddress })
+  addCommunicationPublicKey(sessionId: string, partyId: number, publicKey: string): Observable<any> {
+    return this.http.post<{success: boolean, message: string}>(`${this.apiUrl}/sessions/${sessionId}/parties/${partyId}/communication-key`, { publicKey })
       .pipe(
         map(response => response)
       );
   }
 
-  generateKey(sessionId: string, walletAddress?: string, blockchain?: string): Observable<any> {
-    const body: any = {};
-    if (walletAddress) body.walletAddress = walletAddress;
+  initiateDkg(sessionId: string, blockchain?: string): Observable<DkgResponse> {
+    const body: DkgRequest = {};
     if (blockchain) body.blockchain = blockchain;
     
-    return this.http.post<{success: boolean, message: string}>(`${this.apiUrl}/sessions/${sessionId}/generate-key`, body)
+    return this.http.post<{success: boolean, sessionId: string, status: string, message: string}>(`${this.apiUrl}/sessions/${sessionId}/initiate-dkg`, body)
       .pipe(
-        map(response => response)
+        map(response => ({
+          sessionId: response.sessionId,
+          status: response.status,
+          message: response.message
+        }))
       );
   }
 
-  reconstructKey(sessionId: string): Observable<any> {
-    return this.http.post<{success: boolean, sessionId: string, walletAddress: string, privateKey: string, status: string}>(`${this.apiUrl}/sessions/${sessionId}/reconstruct-key`, {})
+  createSignature(sessionId: string, message: string): Observable<SignatureResponse> {
+    return this.http.post<{success: boolean, sessionId: string, status: string, message: string, messageHash?: string}>(`${this.apiUrl}/sessions/${sessionId}/sign`, { message })
       .pipe(
-        map(response => response)
-      );
-  }
-
-  createSignature(sessionId: string, message: string): Observable<any> {
-    return this.http.post<{success: boolean, signature: string, digest: string}>(`${this.apiUrl}/sessions/${sessionId}/sign`, { message })
-      .pipe(
-        map(response => response)
+        map(response => ({
+          sessionId: response.sessionId,
+          status: response.status,
+          message: response.message,
+          messageHash: response.messageHash
+        }))
       );
   }
 
@@ -172,6 +156,13 @@ export class ApiService {
     return this.http.get<{success: boolean, events: any[]}>(`${this.apiUrl}/sessions/${sessionId}/parties/${partyId}/webhook-events`)
       .pipe(
         map(response => response.events)
+      );
+  }
+
+  registerParty(registration: PartyRegistration): Observable<any> {
+    return this.http.post<{success: boolean, message: string}>(`${this.apiUrl}/parties/register`, registration)
+      .pipe(
+        map(response => response)
       );
   }
 } 

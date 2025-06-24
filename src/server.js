@@ -1,13 +1,12 @@
 require('dotenv').config();
 
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const cron = require('node-cron');
+const { v4: uuidv4 } = require('uuid');
 
-const sessionService = require('./services/sessionService');
+const coordinatorService = require('./services/coordinatorService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,63 +32,81 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
-  process.exit(1);
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    role: 'coordinator-messenger'
   });
 });
 
 // API Routes
 
-// Session management
+// Initialize a new threshold session
 app.post('/api/sessions', async (req, res) => {
   try {
-    const { operation, parties, metadata } = req.body;
+    const { operation, parties, threshold, totalParties, metadata } = req.body;
     
-    if (!operation || !parties || !Array.isArray(parties) || parties.length !== 3) {
+    if (!operation || !parties || !Array.isArray(parties) || !threshold || !totalParties) {
       return res.status(400).json({
-        error: 'Invalid request. Operation and exactly 3 parties are required.'
+        error: 'Invalid request. Operation, parties, threshold, and totalParties are required.'
+      });
+    }
+    if (parties.length !== totalParties) {
+      return res.status(400).json({
+        error: `Party count mismatch: got ${parties.length}, expected ${totalParties}`
+      });
+    }
+    if (threshold < 2 || threshold > totalParties) {
+      return res.status(400).json({
+        error: 'Invalid threshold. Must be at least 2 and at most totalParties.'
       });
     }
 
-    const session = await sessionService.createSession(operation, parties, metadata);
+    const session = await coordinatorService.initializeSession(operation, parties, threshold, totalParties, metadata);
     
     res.status(201).json({
       success: true,
       sessionId: session.sessionId,
       status: session.status,
-      message: 'Session created successfully'
+      message: 'Session initialized successfully'
     });
   } catch (error) {
-    console.error('Error creating session:', error);
+    console.error('Error initializing session:', error);
     res.status(500).json({
-      error: 'Failed to create session',
+      error: 'Failed to initialize session',
       message: error.message
     });
   }
 });
 
+// Get session status
+app.get('/api/sessions/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = await coordinatorService.getSessionStatus(sessionId);
+    
+    res.json({
+      success: true,
+      session
+    });
+  } catch (error) {
+    console.error('Error getting session:', error);
+    res.status(404).json({
+      error: 'Session not found',
+      message: error.message
+    });
+  }
+});
+
+// List active sessions
 app.get('/api/sessions', async (req, res) => {
   try {
     const { status, limit } = req.query;
-    const sessions = await sessionService.listSessions(status, parseInt(limit) || 50);
+    const sessions = await coordinatorService.listSessions(status, parseInt(limit) || 50);
     
     res.json({
       success: true,
@@ -105,72 +122,28 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-app.get('/api/sessions/:sessionId', async (req, res) => {
+// Initiate distributed key generation
+app.post('/api/sessions/:sessionId/initiate-dkg', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const session = await sessionService.getSessionStatus(sessionId);
+    const { blockchain } = req.body;
     
-    res.json({
-      success: true,
-      session
-    });
-  } catch (error) {
-    console.error('Error getting session:', error);
-    res.status(404).json({
-      error: 'Session not found',
-      message: error.message
-    });
-  }
-});
-
-// Key generation
-app.post('/api/sessions/:sessionId/generate-key', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { walletAddress, blockchain } = req.body;
-    
-    const result = await sessionService.generateKey(sessionId, walletAddress, blockchain);
+    const result = await coordinatorService.initiateDistributedKeyGeneration(sessionId, blockchain);
     
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('Error generating key:', error);
+    console.error('Error initiating DKG:', error);
     res.status(500).json({
-      error: 'Failed to generate key',
+      error: 'Failed to initiate distributed key generation',
       message: error.message
     });
   }
 });
 
-// Key reconstruction
-app.post('/api/sessions/:sessionId/reconstruct-key', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({
-      error: 'Forbidden',
-      message: 'Key reconstruction is disabled in production'
-    });
-  }
-
-  try {
-    const { sessionId } = req.params;
-    const result = await sessionService.reconstructKey(sessionId);
-    
-    res.json({
-      success: true,
-      ...result
-    });
-  } catch (error) {
-    console.error('Error reconstructing key:', error);
-    res.status(500).json({
-      error: 'Failed to reconstruct key',
-      message: error.message
-    });
-  }
-});
-
-// Signature creation
+// Create threshold signature
 app.post('/api/sessions/:sessionId/sign', async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -186,19 +159,66 @@ app.post('/api/sessions/:sessionId/sign', async (req, res) => {
       });
     }
 
-    console.log(`🔍 Calling sessionService.createSignature for session: ${sessionId}`);
-    const result = await sessionService.createSignature(sessionId, message);
-    console.log(`✅ Signature creation successful for session: ${sessionId}`);
+    console.log(`🔍 Calling coordinatorService.createThresholdSignature for session: ${sessionId}`);
+    const result = await coordinatorService.createThresholdSignature(sessionId, message);
+    console.log(`✅ Threshold signature creation successful for session: ${sessionId}`);
     
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('❌ Error creating signature:', error);
+    console.error('❌ Error creating threshold signature:', error);
     console.error('❌ Error stack:', error.stack);
     res.status(500).json({
-      error: 'Failed to create signature',
+      error: 'Failed to create threshold signature',
+      message: error.message
+    });
+  }
+});
+
+// Add a party's communication public key
+app.post('/api/sessions/:sessionId/parties/:partyId/communication-key', async (req, res) => {
+  try {
+    const { sessionId, partyId } = req.params;
+    const { publicKey } = req.body;
+
+    if (!publicKey) {
+      return res.status(400).json({ error: 'Public key is required' });
+    }
+
+    const result = await coordinatorService.addCommunicationPublicKey(sessionId, parseInt(partyId), publicKey);
+    res.json(result);
+  } catch (error) {
+    console.error('Error adding communication public key:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register a party with the coordinator
+app.post('/api/parties/register', async (req, res) => {
+  try {
+    const { partyId, webhookUrl, walletAddress, timestamp } = req.body;
+    
+    console.log(`📝 Party registration received: Party ${partyId}, Wallet: ${walletAddress}`);
+    
+    if (!partyId || !webhookUrl || !walletAddress) {
+      return res.status(400).json({
+        error: 'Party ID, webhook URL, and wallet address are required'
+      });
+    }
+
+    // Store party registration in coordinator service
+    await coordinatorService.registerParty(partyId, webhookUrl, walletAddress);
+    
+    res.json({
+      success: true,
+      message: `Party ${partyId} registered successfully with wallet address ${walletAddress}`
+    });
+  } catch (error) {
+    console.error('Error registering party:', error);
+    res.status(500).json({
+      error: 'Failed to register party',
       message: error.message
     });
   }
@@ -218,7 +238,7 @@ app.post('/api/webhook/:sessionId/:partyId', async (req, res) => {
       });
     }
 
-    const result = await sessionService.handlePartyResponse(
+    const result = await coordinatorService.handlePartyResponse(
       sessionId,
       parseInt(partyId),
       event,
@@ -234,7 +254,6 @@ app.post('/api/webhook/:sessionId/:partyId', async (req, res) => {
   } catch (error) {
     console.error(`❌ Error handling webhook for Session ${req.params.sessionId}:`, error);
     
-    // Provide more specific error messages
     if (error.message === 'Session not found') {
       res.status(404).json({
         error: 'Session not found',
@@ -257,14 +276,13 @@ app.post('/api/webhook/:sessionId/:partyId', async (req, res) => {
   }
 });
 
-// Webhook logs
+// Get webhook logs for a session
 app.get('/api/webhook-logs/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { limit } = req.query;
     
-    const WebhookLog = require('./models/WebhookLog');
-    const logs = await WebhookLog.getSessionLogs(sessionId, parseInt(limit) || 100);
+    const logs = await coordinatorService.getWebhookLogs(sessionId, parseInt(limit) || 100);
     
     res.json({
       success: true,
@@ -285,22 +303,11 @@ app.get('/api/sessions/:sessionId/parties/:partyId/webhook-events', async (req, 
   try {
     const { sessionId, partyId } = req.params;
     
-    const WebhookLog = require('./models/WebhookLog');
-    const logs = await WebhookLog.find({
-      sessionId,
-      partyId: parseInt(partyId),
-      direction: 'outbound',
-      success: true,
-      webhookUrl: { $regex: /^browser:\/\// }
-    }).sort({ timestamp: -1 }).limit(10);
+    const events = await coordinatorService.getPendingWebhookEvents(sessionId, parseInt(partyId));
     
     res.json({
       success: true,
-      events: logs.map(log => ({
-        event: log.event,
-        payload: log.requestBody,
-        timestamp: log.timestamp
-      }))
+      events
     });
   } catch (error) {
     console.error('Error getting webhook events:', error);
@@ -308,42 +315,6 @@ app.get('/api/sessions/:sessionId/parties/:partyId/webhook-events', async (req, 
       error: 'Failed to get webhook events',
       message: error.message
     });
-  }
-});
-
-// Add a party's communication public key
-app.post('/api/sessions/:sessionId/parties/:partyId/communication-key', async (req, res) => {
-  try {
-    const { sessionId, partyId } = req.params;
-    const { publicKey } = req.body;
-
-    if (!publicKey) {
-      return res.status(400).json({ error: 'Public key is required' });
-    }
-
-    const updatedSession = await sessionService.addCommunicationPublicKey(sessionId, parseInt(partyId), publicKey);
-    res.json(updatedSession);
-  } catch (error) {
-    console.error('Error adding communication public key:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Join a session as a party
-app.post('/api/sessions/:sessionId/join', async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { walletAddress } = req.body;
-
-    if (!walletAddress) {
-      return res.status(400).json({ error: 'Wallet address is required' });
-    }
-
-    const result = await sessionService.joinSession(sessionId, walletAddress);
-    res.json(result);
-  } catch (error) {
-    console.error('Error joining session:', error);
-    res.status(500).json({ error: error.message });
   }
 });
 
@@ -364,33 +335,9 @@ app.use((req, res) => {
   });
 });
 
-// Scheduled tasks
-cron.schedule('0 */6 * * *', async () => {
-  // Cleanup expired sessions every 6 hours
-  try {
-    const result = await sessionService.cleanupExpiredSessions();
-    console.log(`Cleaned up ${result.modifiedCount} expired sessions`);
-  } catch (error) {
-    console.error('Error cleaning up expired sessions:', error);
-  }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  await mongoose.connection.close();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully');
-  await mongoose.connection.close();
-  process.exit(0);
-});
-
 // Start server
 app.listen(PORT, () => {
-  console.log(`TLS-MCP Coordinator Server running on port ${PORT}`);
+  console.log(`TLS-MCP Coordinator (Messenger) running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 }); 

@@ -1,0 +1,237 @@
+@use '@angular/material' as mat;
+
+// Include the common styles for Angular Material
+@include mat.core();
+
+// Create the theme using Material 3 with built-in palettes
+$theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$azure-palette,
+    tertiary: mat.$rose-palette,
+  )
+));
+
+// Apply the theme wrapped in html selector as required by M3
+html {
+  @include mat.all-component-themes($theme);
+}
+
+// Custom dark mode overrides with your specific colors
+:root {
+  --mdc-theme-surface: #121212;
+  --mdc-theme-background: #121212;
+  --mdc-theme-on-surface: #ffffff;
+  --mdc-theme-on-background: #ffffff;
+  --mdc-theme-primary: #07A673;
+  --mdc-theme-secondary: #f8598c;
+}
+
+body {
+  background-color: #121212;
+  color: #ffffff;
+}
+
+// Card styling
+.mat-mdc-card {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  border: 1px solid #333333;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+// Form field styling
+.mat-mdc-form-field {
+  .mdc-text-field {
+    background-color: #2a2a2a !important;
+  }
+  
+  .mdc-floating-label {
+    color: #b0b0b0 !important;
+  }
+  
+  .mdc-text-field__input {
+    color: #ffffff !important;
+  }
+  
+  .mdc-line-ripple::before {
+    border-bottom-color: #666666 !important;
+  }
+  
+  .mdc-line-ripple::after {
+    border-bottom-color: #07A673 !important;
+  }
+}
+
+// Select styling
+.mat-mdc-select {
+  .mdc-select__selected-text {
+    color: #ffffff !important;
+  }
+  
+  .mdc-select__dropdown-icon {
+    fill: #b0b0b0 !important;
+  }
+}
+
+// Checkbox styling
+.mat-mdc-checkbox {
+  .mdc-checkbox__background {
+    background-color: #2a2a2a !important;
+    border-color: #666666 !important;
+  }
+  
+  .mdc-checkbox__checkmark {
+    color: #07A673 !important;
+  }
+}
+
+// Button styling
+.mat-mdc-raised-button.mat-primary {
+  background-color: #07A673 !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-raised-button.mat-accent {
+  background-color: #f8598c !important;
+  color: #ffffff !important;
+}
+
+// Table styling
+.mat-mdc-table {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+  
+  .mdc-data-table__header-cell {
+    color: #b0b0b0 !important;
+    border-bottom-color: #333333 !important;
+  }
+  
+  .mdc-data-table__cell {
+    color: #ffffff !important;
+    border-bottom-color: #333333 !important;
+  }
+  
+  .mdc-data-table__row:hover {
+    background-color: #2a2a2a !important;
+  }
+}
+
+// Stepper styling
+.mat-stepper-horizontal {
+  background-color: #1e1e1e !important;
+  
+  .mat-step-header {
+    background-color: #2a2a2a !important;
+    color: #ffffff !important;
+    
+    &.mat-step-header-selected {
+      background-color: #07A673 !important;
+      color: #ffffff !important;
+    }
+  }
+}
+
+// Chip styling
+.mat-mdc-chip {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+  
+  &.mat-mdc-chip-selected {
+    background-color: #07A673 !important;
+    color: #ffffff !important;
+  }
+}
+
+// Dialog styling
+.mat-mdc-dialog-container {
+  background-color: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+// Menu styling
+.mat-mdc-menu-panel {
+  background-color: #2a2a2a !important;
+  
+  .mat-mdc-menu-item {
+    color: #ffffff !important;
+    
+    &:hover {
+      background-color: #333333 !important;
+    }
+  }
+}
+
+// Snackbar styling
+.mat-mdc-snack-bar-container {
+  background-color: #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+// Progress bar styling
+.mdc-linear-progress__buffer {
+  background-color: #333333 !important;
+}
+
+.mdc-linear-progress__bar-inner {
+  border-color: #07A673 !important;
+}
+
+// Divider styling
+.mat-divider {
+  border-color: #333333 !important;
+}
+
+// Icon styling
+.mat-icon {
+  color: #07A673 !important;
+}
+
+// Button icon styling - make icons white on primary and secondary buttons
+.mat-mdc-raised-button.mat-primary .mat-icon,
+.mat-mdc-raised-button.mat-accent .mat-icon,
+.mat-mdc-raised-button.mat-warn .mat-icon,
+.mat-mdc-button.mat-primary .mat-icon,
+.mat-mdc-button.mat-accent .mat-icon,
+.mat-mdc-button.mat-warn .mat-icon {
+  color: #ffffff !important;
+}
+
+// Link styling
+a {
+  color: #07A673 !important;
+  
+  &:hover {
+    color: #f8598c !important;
+  }
+}
+
+// Status badges for dark mode
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.status-badge.active {
+  background: rgba(7, 166, 115, 0.2);
+  color: #07A673;
+}
+
+.status-badge.completed {
+  background: rgba(7, 166, 115, 0.2);
+  color: #07A673;
+}
+
+.status-badge.failed {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}

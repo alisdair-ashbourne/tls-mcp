@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
-import { ApiService, Session } from '../../services/api.service';
+import { ApiService, SessionSummary } from '../../services/api.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatMenuModule } from '@angular/material/menu';
@@ -169,8 +169,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 })
 export class SessionsComponent implements OnInit, AfterViewInit {
   displayedColumns: string[] = ['sessionId', 'status', 'operation', 'createdAt', 'actions'];
-  dataSource: MatTableDataSource<Session>;
-  sessions: Session[] = [];
+  dataSource: MatTableDataSource<SessionSummary>;
+  sessions: SessionSummary[] = [];
   loading = true;
 
   @ViewChild(MatSort) sort!: MatSort;

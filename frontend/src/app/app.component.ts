@@ -31,22 +31,22 @@ import { MatListModule } from '@angular/material/list';
 
     <mat-sidenav-container>
       <mat-sidenav #sidenav mode="side" opened>
-        <mat-nav-list>
-          <a mat-list-item routerLink="/dashboard" routerLinkActive="active">
-            <mat-icon>dashboard</mat-icon>
-            <span>Dashboard</span>
+        <mat-nav-list class="nav-list">
+          <a mat-list-item routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+            <mat-icon matListItemIcon>dashboard</mat-icon>
+            <span matListItemTitle>Dashboard</span>
           </a>
-          <a mat-list-item routerLink="/sessions" routerLinkActive="active">
-            <mat-icon>list</mat-icon>
-            <span>Sessions</span>
+          <a mat-list-item routerLink="/sessions" routerLinkActive="active" class="nav-item">
+            <mat-icon matListItemIcon>list</mat-icon>
+            <span matListItemTitle>Sessions</span>
           </a>
-          <a mat-list-item routerLink="/key-generation" routerLinkActive="active">
-            <mat-icon>vpn_key</mat-icon>
-            <span>Key Generation</span>
+          <a mat-list-item routerLink="/key-generation" routerLinkActive="active" class="nav-item">
+            <mat-icon matListItemIcon>vpn_key</mat-icon>
+            <span matListItemTitle>Key Generation</span>
           </a>
-          <a mat-list-item routerLink="/signature" routerLinkActive="active">
-            <mat-icon>edit</mat-icon>
-            <span>Signature</span>
+          <a mat-list-item routerLink="/signature" routerLinkActive="active" class="nav-item">
+            <mat-icon matListItemIcon>edit</mat-icon>
+            <span matListItemTitle>Signature</span>
           </a>
         </mat-nav-list>
       </mat-sidenav>
@@ -58,29 +58,7 @@ import { MatListModule } from '@angular/material/list';
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,
-  styles: [`
-    mat-sidenav-container {
-      height: calc(100vh - 64px);
-    }
-
-    mat-sidenav {
-      width: 250px;
-    }
-
-    .content {
-      padding: 20px;
-    }
-
-    .active {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-
-    mat-nav-list a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-  `]
+  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
   title = 'TLS-MCP Coordinator';
