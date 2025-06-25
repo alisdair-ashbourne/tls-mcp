@@ -25,16 +25,16 @@ mat-sidenav {
   transition: all 0.2s ease !important;
   border-radius: 0 !important;
   margin: 4px 8px !important;
-  
+
   &:hover {
     background-color: rgba(7, 166, 115, 0.1) !important;
-    color: #07A673 !important;
+    color: #07a673 !important;
   }
-  
+
   &.active {
     background-color: rgba(7, 166, 115, 0.2) !important;
-    color: #07A673 !important;
-    border-left: 4px solid #07A673 !important;
+    color: #07a673 !important;
+    border-left: 4px solid #07a673 !important;
   }
 }
 
@@ -46,7 +46,7 @@ mat-sidenav {
     gap: 12px !important;
     padding: 0 !important;
   }
-  
+
   .mdc-list-item__primary-text {
     display: flex !important;
     align-items: center !important;
@@ -54,12 +54,12 @@ mat-sidenav {
     color: inherit !important;
     font-weight: 500 !important;
   }
-  
+
   mat-icon {
     color: inherit !important;
     margin-right: 0 !important;
   }
-  
+
   span {
     color: inherit !important;
     font-weight: 500 !important;
@@ -75,7 +75,7 @@ mat-sidenav {
 
 // Toolbar
 mat-toolbar {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
   border-bottom: 1px solid #333333;
 }
@@ -83,7 +83,7 @@ mat-toolbar {
 // Active state override
 .active {
   background-color: rgba(7, 166, 115, 0.2) !important;
-  color: #07A673 !important;
+  color: #07a673 !important;
 }
 
 // Responsive design
@@ -91,9 +91,9 @@ mat-toolbar {
   mat-sidenav {
     width: 200px;
   }
-  
+
   .nav-item {
     padding: 10px 12px !important;
     margin: 2px 4px !important;
   }
-} 
+}

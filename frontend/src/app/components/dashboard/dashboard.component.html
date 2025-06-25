@@ -20,7 +20,9 @@
           </mat-icon>
           <div class="status-info">
             <span class="label">Backend</span>
-            <span class="value">{{ coordinatorHealthy ? 'Online' : 'Offline' }}</span>
+            <span class="value">{{
+              coordinatorHealthy ? 'Online' : 'Offline'
+            }}</span>
           </div>
         </div>
         <div class="status-item">
@@ -51,11 +53,19 @@
     </mat-card-header>
     <mat-card-content>
       <div class="actions-grid">
-        <button mat-raised-button color="primary" routerLink="/key-generation">
-          <mat-icon>add</mat-icon>
-          Create New Session
+        <button
+          mat-raised-button
+          color="primary"
+          routerLink="/server-coordinator/key-generation"
+        >
+          <mat-icon>vpn_key</mat-icon>
+          Start Key Generation
         </button>
-        <button mat-raised-button color="accent" routerLink="/sessions">
+        <button
+          mat-raised-button
+          color="accent"
+          routerLink="/server-coordinator/sessions"
+        >
           <mat-icon>list</mat-icon>
           View All Sessions
         </button>
@@ -83,7 +93,11 @@
       </div>
 
       <div *ngIf="!loading && recentSessions.length > 0" class="sessions-list">
-        <div *ngFor="let session of recentSessions" class="session-item" [routerLink]="['/sessions', session.sessionId]">
+        <div
+          *ngFor="let session of recentSessions"
+          class="session-item"
+          [routerLink]="['/server-coordinator/sessions', session.sessionId]"
+        >
           <div class="session-info">
             <div class="session-header">
               <h3>{{ session.sessionId }}</h3>
@@ -95,11 +109,15 @@
             <div class="session-details">
               <span class="operation">
                 <mat-icon>vpn_key</mat-icon>
-                {{ session.operation === 'key_generation' ? 'Distributed Key Generation' : 'Threshold Signature' }}
+                {{
+                  session.operation === 'key_generation'
+                    ? 'Distributed Key Generation'
+                    : 'Threshold Signature'
+                }}
               </span>
               <span class="created">
                 <mat-icon>schedule</mat-icon>
-                {{ session.createdAt | date:'short' }}
+                {{ session.createdAt | date: 'short' }}
               </span>
             </div>
           </div>
@@ -110,7 +128,11 @@
       <div *ngIf="!loading && recentSessions.length === 0" class="no-sessions">
         <mat-icon>inbox</mat-icon>
         <p>No sessions found</p>
-        <button mat-raised-button color="primary" routerLink="/key-generation">
+        <button
+          mat-raised-button
+          color="primary"
+          routerLink="/server-coordinator/key-generation"
+        >
           Create Your First Session
         </button>
       </div>
@@ -124,7 +146,9 @@
         <mat-icon>storage</mat-icon>
         Local Storage Management
       </mat-card-title>
-      <mat-card-subtitle>Manage data stored in your browser's IndexedDB</mat-card-subtitle>
+      <mat-card-subtitle
+        >Manage data stored in your browser's IndexedDB</mat-card-subtitle
+      >
     </mat-card-header>
     <mat-card-content>
       <div class="storage-info">
@@ -134,15 +158,21 @@
         </div>
         <div class="storage-item">
           <span class="label">Party Configurations:</span>
-          <span class="value">{{ indexedDBData.partyConfigs?.count || 0 }}</span>
+          <span class="value">{{
+            indexedDBData.partyConfigs?.count || 0
+          }}</span>
         </div>
         <div class="storage-item">
           <span class="label">Party Sessions:</span>
-          <span class="value">{{ indexedDBData.partySessions?.count || 0 }}</span>
+          <span class="value">{{
+            indexedDBData.partySessions?.count || 0
+          }}</span>
         </div>
         <div class="storage-item">
           <span class="label">Webhook Events:</span>
-          <span class="value">{{ indexedDBData.webhookEvents?.count || 0 }}</span>
+          <span class="value">{{
+            indexedDBData.webhookEvents?.count || 0
+          }}</span>
         </div>
       </div>
 
@@ -159,7 +189,11 @@
         <mat-icon>security</mat-icon>
         <div class="notice-content">
           <h4>Security Notice</h4>
-          <p>This system stores only non-sensitive metadata locally. All cryptographic material is generated fresh per operation and never stored. Your private keys and shares remain secure in memory only.</p>
+          <p>
+            This system stores only non-sensitive metadata locally. All
+            cryptographic material is generated fresh per operation and never
+            stored. Your private keys and shares remain secure in memory only.
+          </p>
         </div>
       </div>
     </mat-card-content>
@@ -202,4 +236,4 @@
       </div>
     </mat-card-content>
   </mat-card>
-</div> 
+</div>

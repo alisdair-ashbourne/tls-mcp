@@ -4,18 +4,21 @@
 @use './theme.scss';
 
 /* Global styles */
-html, body { 
-  height: 100%; 
+html,
+body {
+  height: 100%;
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
 }
 
-body { 
-  margin: 0; 
-  font-family: Roboto, "Helvetica Neue", sans-serif; 
+body {
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
   background-color: #121212;
   color: #ffffff;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 /* Custom scrollbar for dark mode */
@@ -33,7 +36,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #07A673;
+  background: #07a673;
 }
 
 /* Utility classes */
@@ -61,7 +64,7 @@ body {
 .mat-card {
   margin-bottom: 16px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   background-color: #1e1e1e;
   color: #ffffff;
   border: 1px solid #333333;
@@ -110,7 +113,7 @@ body {
 
 /* Success styles */
 .success-message {
-  color: #07A673;
+  color: #07a673;
   font-size: 14px;
   margin-top: 8px;
 }
@@ -131,12 +134,12 @@ body {
 
 .status-badge.active {
   background: rgba(7, 166, 115, 0.2);
-  color: #07A673;
+  color: #07a673;
 }
 
 .status-badge.completed {
   background: rgba(7, 166, 115, 0.2);
-  color: #07A673;
+  color: #07a673;
 }
 
 .status-badge.failed {
@@ -146,11 +149,11 @@ body {
 
 /* Progress bars with custom colors */
 .mat-progress-bar.mat-progress-bar-success .mat-progress-bar-fill::after {
-  background-color: #07A673;
+  background-color: #07a673;
 }
 
 .mat-progress-bar.mat-progress-bar-primary .mat-progress-bar-fill::after {
-  background-color: #07A673;
+  background-color: #07a673;
 }
 
 .mat-progress-bar.mat-progress-bar-accent .mat-progress-bar-fill::after {
@@ -200,7 +203,7 @@ body {
 }
 
 .mat-step-header.mat-step-header-selected {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
@@ -210,7 +213,7 @@ body {
 }
 
 .mat-chip.mat-chip-selected {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
@@ -271,7 +274,7 @@ body {
 .mat-stepper-horizontal {
   background-color: #1e1e1e !important;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .mat-step-header {
@@ -280,13 +283,13 @@ body {
 }
 
 .mat-step-header.mat-step-header-selected {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
 .mat-step-header.mat-step-header-state-done {
   background-color: rgba(7, 166, 115, 0.2) !important;
-  color: #07A673 !important;
+  color: #07a673 !important;
 }
 
 /* Dashboard specific fixes */
@@ -313,7 +316,7 @@ body {
 }
 
 .stat-card:hover {
-  border-color: #07A673;
+  border-color: #07a673;
   box-shadow: 0 2px 8px rgba(7, 166, 115, 0.2);
 }
 
@@ -337,7 +340,7 @@ body {
 }
 
 .action-card:hover {
-  border-color: #07A673;
+  border-color: #07a673;
   background: rgba(7, 166, 115, 0.05);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(7, 166, 115, 0.2);
@@ -363,7 +366,7 @@ body {
   padding: 12px;
   background: #333333;
   border-radius: 6px;
-  border-left: 4px solid #07A673;
+  border-left: 4px solid #07a673;
 }
 
 /* Session detail specific fixes */
@@ -382,7 +385,7 @@ body {
 }
 
 .party-item.current-party {
-  border-color: #07A673;
+  border-color: #07a673;
   background: rgba(7, 166, 115, 0.1);
   box-shadow: 0 2px 8px rgba(7, 166, 115, 0.2);
 }
@@ -394,7 +397,7 @@ body {
 }
 
 .mat-chip.mat-chip-selected {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
@@ -408,7 +411,7 @@ body {
   font-weight: 500 !important;
   font-size: 12px !important;
   line-height: 1.2 !important;
-  
+
   mat-icon {
     display: flex !important;
     align-items: center !important;
@@ -419,7 +422,7 @@ body {
     margin: 0 !important;
     color: inherit !important;
   }
-  
+
   .mdc-evolution-chip__text {
     display: flex !important;
     align-items: center !important;
@@ -427,7 +430,7 @@ body {
     color: inherit !important;
     font-weight: inherit !important;
   }
-  
+
   .mdc-evolution-chip__action--primary {
     display: flex !important;
     align-items: center !important;
@@ -438,7 +441,7 @@ body {
 
 /* Specific chip variants */
 ::ng-deep .mat-chip.mat-mdc-chip-selected {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
@@ -447,17 +450,17 @@ body {
 }
 
 /* Status chips with specific colors */
-::ng-deep .mat-chip[color="primary"] {
-  background-color: #07A673 !important;
+::ng-deep .mat-chip[color='primary'] {
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
-::ng-deep .mat-chip[color="accent"] {
+::ng-deep .mat-chip[color='accent'] {
   background-color: #f8598c !important;
   color: #ffffff !important;
 }
 
-::ng-deep .mat-chip[color="warn"] {
+::ng-deep .mat-chip[color='warn'] {
   background-color: #ff9800 !important;
   color: #ffffff !important;
 }
@@ -467,4 +470,4 @@ body {
   transform: translateY(-1px) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
   transition: all 0.2s ease !important;
-} 
+}

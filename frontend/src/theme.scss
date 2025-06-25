@@ -4,13 +4,15 @@
 @include mat.core();
 
 // Create the theme using Material 3 with built-in palettes
-$theme: mat.define-theme((
-  color: (
-    theme-type: dark,
-    primary: mat.$azure-palette,
-    tertiary: mat.$rose-palette,
+$theme: mat.define-theme(
+  (
+    color: (
+      theme-type: dark,
+      primary: mat.$azure-palette,
+      tertiary: mat.$rose-palette,
+    ),
   )
-));
+);
 
 // Apply the theme wrapped in html selector as required by M3
 html {
@@ -23,7 +25,7 @@ html {
   --mdc-theme-background: #121212;
   --mdc-theme-on-surface: #ffffff;
   --mdc-theme-on-background: #ffffff;
-  --mdc-theme-primary: #07A673;
+  --mdc-theme-primary: #07a673;
   --mdc-theme-secondary: #f8598c;
 }
 
@@ -38,7 +40,7 @@ body {
   color: #ffffff !important;
   border: 1px solid #333333;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 // Form field styling
@@ -46,21 +48,21 @@ body {
   .mdc-text-field {
     background-color: #2a2a2a !important;
   }
-  
+
   .mdc-floating-label {
     color: #b0b0b0 !important;
   }
-  
+
   .mdc-text-field__input {
     color: #ffffff !important;
   }
-  
+
   .mdc-line-ripple::before {
     border-bottom-color: #666666 !important;
   }
-  
+
   .mdc-line-ripple::after {
-    border-bottom-color: #07A673 !important;
+    border-bottom-color: #07a673 !important;
   }
 }
 
@@ -69,7 +71,7 @@ body {
   .mdc-select__selected-text {
     color: #ffffff !important;
   }
-  
+
   .mdc-select__dropdown-icon {
     fill: #b0b0b0 !important;
   }
@@ -81,15 +83,15 @@ body {
     background-color: #2a2a2a !important;
     border-color: #666666 !important;
   }
-  
+
   .mdc-checkbox__checkmark {
-    color: #07A673 !important;
+    color: #07a673 !important;
   }
 }
 
 // Button styling
 .mat-mdc-raised-button.mat-primary {
-  background-color: #07A673 !important;
+  background-color: #07a673 !important;
   color: #ffffff !important;
 }
 
@@ -102,17 +104,17 @@ body {
 .mat-mdc-table {
   background-color: #1e1e1e !important;
   color: #ffffff !important;
-  
+
   .mdc-data-table__header-cell {
     color: #b0b0b0 !important;
     border-bottom-color: #333333 !important;
   }
-  
+
   .mdc-data-table__cell {
     color: #ffffff !important;
     border-bottom-color: #333333 !important;
   }
-  
+
   .mdc-data-table__row:hover {
     background-color: #2a2a2a !important;
   }
@@ -121,13 +123,13 @@ body {
 // Stepper styling
 .mat-stepper-horizontal {
   background-color: #1e1e1e !important;
-  
+
   .mat-step-header {
     background-color: #2a2a2a !important;
     color: #ffffff !important;
-    
+
     &.mat-step-header-selected {
-      background-color: #07A673 !important;
+      background-color: #07a673 !important;
       color: #ffffff !important;
     }
   }
@@ -137,9 +139,9 @@ body {
 .mat-mdc-chip {
   background-color: #2a2a2a !important;
   color: #ffffff !important;
-  
+
   &.mat-mdc-chip-selected {
-    background-color: #07A673 !important;
+    background-color: #07a673 !important;
     color: #ffffff !important;
   }
 }
@@ -153,10 +155,10 @@ body {
 // Menu styling
 .mat-mdc-menu-panel {
   background-color: #2a2a2a !important;
-  
+
   .mat-mdc-menu-item {
     color: #ffffff !important;
-    
+
     &:hover {
       background-color: #333333 !important;
     }
@@ -175,7 +177,7 @@ body {
 }
 
 .mdc-linear-progress__bar-inner {
-  border-color: #07A673 !important;
+  border-color: #07a673 !important;
 }
 
 // Divider styling
@@ -185,7 +187,7 @@ body {
 
 // Icon styling
 .mat-icon {
-  color: #07A673 !important;
+  color: #07a673 !important;
 }
 
 // Button icon styling - make icons white on primary and secondary buttons
@@ -200,8 +202,8 @@ body {
 
 // Link styling
 a {
-  color: #07A673 !important;
-  
+  color: #07a673 !important;
+
   &:hover {
     color: #f8598c !important;
   }
@@ -223,12 +225,12 @@ a {
 
 .status-badge.active {
   background: rgba(7, 166, 115, 0.2);
-  color: #07A673;
+  color: #07a673;
 }
 
 .status-badge.completed {
   background: rgba(7, 166, 115, 0.2);
-  color: #07A673;
+  color: #07a673;
 }
 
 .status-badge.failed {

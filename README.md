@@ -5,6 +5,7 @@ A proof of concept implementation of a true threshold cryptography system for se
 ## Overview
 
 This system implements a (3,3) threshold scheme where:
+
 - **Party A, Party B, Party C**: The three participating parties that generate their own shares independently
 - **Coordinator**: A central server that acts purely as a messenger/orchestrator (no cryptographic material stored)
 - **Frontend**: Angular application that can optionally participate as a party
@@ -199,6 +200,7 @@ npm run party-c
 ## Frontend Features
 
 The Angular frontend includes:
+
 - **Real-time Health Monitoring**: Automatic health checks of coordinator and all parties
 - **Dashboard**: System status, recent sessions, and quick actions
 - **Session Management**: Create, view, and manage TLS-MCP sessions
@@ -339,22 +341,22 @@ All operations are logged to MongoDB with detailed webhook communication logs.
 
 1. **MongoDB Connection**: Ensure MongoDB Atlas is accessible and credentials are correct
 2. **Port Conflicts**: Ensure ports 3000 and 4200 are available
-3. **IndexedDB Issues**: 
+3. **IndexedDB Issues**:
    - Clear browser data if IndexedDB shows errors
    - Use the reset button in the dashboard to reinitialize IndexedDB
    - Check browser console for IndexedDB errors
-4. **CORS Issues**: 
+4. **CORS Issues**:
    - Frontend includes CORS configuration for coordinator communication
    - If frontend shows parties as offline, check that external party simulators are running
    - Verify CORS headers in browser developer tools
    - Check browser console for CORS errors
 5. **Webhook Failures**: Verify external party simulators are running and accessible
-6. **Health Check Failures**: 
+6. **Health Check Failures**:
    - Check that all services are running on correct ports
    - Verify network connectivity between frontend and coordinator
    - Check browser console for detailed health check logs
    - Use browser developer tools to inspect network requests
-7. **Crypto Errors**: 
+7. **Crypto Errors**:
    - Ensure browser supports Web Crypto API
    - Check for polyfill issues in older browsers
    - Verify IndexedDB is available and working
@@ -366,6 +368,7 @@ Enable debug logging by setting `NODE_ENV=development` in the `.env` file.
 ### IndexedDB Management
 
 The dashboard includes tools for managing IndexedDB:
+
 - **Sync Data**: Manually sync server data to IndexedDB
 - **Reset Database**: Clear and reinitialize IndexedDB
 - **View Data**: Inspect stored data for debugging
@@ -387,4 +390,4 @@ MIT License - see LICENSE file for details.
 - Shamir's Secret Sharing algorithm
 - Threshold cryptography research
 - Multi-party computation protocols
-- Web Crypto API and IndexedDB standards 
+- Web Crypto API and IndexedDB standards

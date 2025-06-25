@@ -1,7 +1,10 @@
 <div class="key-generation-container">
   <div class="header">
     <h1>Initialize Threshold Session</h1>
-    <p>Create a new TLS-MCP session for distributed key generation and threshold signatures</p>
+    <p>
+      Create a new TLS-MCP session for distributed key generation and threshold
+      signatures
+    </p>
   </div>
 
   <mat-stepper #stepper [linear]="true" class="stepper">
@@ -21,17 +24,27 @@
                 <mat-form-field appearance="outline">
                   <mat-label>Operation Type</mat-label>
                   <mat-select formControlName="operation" required>
-                    <mat-option value="key_generation">Distributed Key Generation</mat-option>
-                    <mat-option value="signature">Threshold Signature</mat-option>
+                    <mat-option value="key_generation"
+                      >Distributed Key Generation</mat-option
+                    >
+                    <mat-option value="signature"
+                      >Threshold Signature</mat-option
+                    >
                   </mat-select>
-                  <mat-error *ngIf="sessionForm.get('operation')?.hasError('required')">
+                  <mat-error
+                    *ngIf="sessionForm.get('operation')?.hasError('required')"
+                  >
                     Operation type is required
                   </mat-error>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
                   <mat-label>Description</mat-label>
-                  <input matInput formControlName="description" placeholder="Brief description of this session">
+                  <input
+                    matInput
+                    formControlName="description"
+                    placeholder="Brief description of this session"
+                  />
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
@@ -46,12 +59,22 @@
 
                 <mat-form-field appearance="outline">
                   <mat-label>Threshold Scheme</mat-label>
-                  <mat-select formControlName="thresholdScheme" (selectionChange)="onThresholdSchemeChange()">
-                    <mat-option *ngFor="let option of thresholdOptions" [value]="option.value">
+                  <mat-select
+                    formControlName="thresholdScheme"
+                    (selectionChange)="onThresholdSchemeChange()"
+                  >
+                    <mat-option
+                      *ngFor="let option of thresholdOptions"
+                      [value]="option.value"
+                    >
                       {{ option.label }}
                     </mat-option>
                   </mat-select>
-                  <mat-error *ngIf="sessionForm.get('thresholdScheme')?.hasError('required')">
+                  <mat-error
+                    *ngIf="
+                      sessionForm.get('thresholdScheme')?.hasError('required')
+                    "
+                  >
                     Threshold scheme is required
                   </mat-error>
                 </mat-form-field>
@@ -78,49 +101,98 @@
                 <mat-icon>people</mat-icon>
                 Configure Parties
               </mat-card-title>
-              <mat-card-subtitle>Set up the parties that will participate in the TLS-MCP session</mat-card-subtitle>
+              <mat-card-subtitle
+                >Set up the parties that will participate in the TLS-MCP
+                session</mat-card-subtitle
+              >
             </mat-card-header>
             <mat-card-content>
               <div class="parties-grid">
-                <div *ngFor="let party of parties; let i = index" class="party-card">
+                <div
+                  *ngFor="let party of parties; let i = index"
+                  class="party-card"
+                >
                   <h3>Party {{ i + 1 }}</h3>
                   <div class="party-form">
                     <div class="party-participation">
-                      <mat-checkbox [formControlName]="'party' + i + 'Participate'" (change)="onPartyParticipationChange(i)">
+                      <mat-checkbox
+                        [formControlName]="'party' + i + 'Participate'"
+                        (change)="onPartyParticipationChange(i)"
+                      >
                         Join as this party in this browser
                       </mat-checkbox>
                       <p class="participation-hint">
-                        Check this to act as Party {{ i + 1 }} in this browser session
+                        Check this to act as Party {{ i + 1 }} in this browser
+                        session
                       </p>
                     </div>
 
                     <mat-form-field appearance="outline">
                       <mat-label>Party Name</mat-label>
-                      <input matInput 
-                             [formControlName]="'party' + i + 'Name'" 
-                             [placeholder]="getPartyNamePlaceholder(i)"
-                             [readonly]="partiesForm.get('party' + i + 'Participate')?.value">
-                      <mat-error *ngIf="partiesForm.get('party' + i + 'Name')?.hasError('required')">
+                      <input
+                        matInput
+                        [formControlName]="'party' + i + 'Name'"
+                        [placeholder]="getPartyNamePlaceholder(i)"
+                        [readonly]="
+                          partiesForm.get('party' + i + 'Participate')?.value
+                        "
+                      />
+                      <mat-error
+                        *ngIf="
+                          partiesForm
+                            .get('party' + i + 'Name')
+                            ?.hasError('required')
+                        "
+                      >
                         Party name is required
                       </mat-error>
                     </mat-form-field>
 
-                    <mat-form-field appearance="outline" *ngIf="!partiesForm.get('party' + i + 'Participate')?.value">
+                    <mat-form-field
+                      appearance="outline"
+                      *ngIf="
+                        !partiesForm.get('party' + i + 'Participate')?.value
+                      "
+                    >
                       <mat-label>Webhook URL</mat-label>
-                      <input matInput [formControlName]="'party' + i + 'Url'" placeholder="http://localhost:3001/webhook">
-                      <mat-error *ngIf="partiesForm.get('party' + i + 'Url')?.hasError('required')">
+                      <input
+                        matInput
+                        [formControlName]="'party' + i + 'Url'"
+                        placeholder="http://localhost:3001/webhook"
+                      />
+                      <mat-error
+                        *ngIf="
+                          partiesForm
+                            .get('party' + i + 'Url')
+                            ?.hasError('required')
+                        "
+                      >
                         Webhook URL is required
                       </mat-error>
-                      <mat-error *ngIf="partiesForm.get('party' + i + 'Url')?.hasError('pattern')">
+                      <mat-error
+                        *ngIf="
+                          partiesForm
+                            .get('party' + i + 'Url')
+                            ?.hasError('pattern')
+                        "
+                      >
                         Please enter a valid URL
                       </mat-error>
                     </mat-form-field>
 
-                    <div *ngIf="partiesForm.get('party' + i + 'Participate')?.value" class="browser-connection">
+                    <div
+                      *ngIf="
+                        partiesForm.get('party' + i + 'Participate')?.value
+                      "
+                      class="browser-connection"
+                    >
                       <mat-form-field appearance="outline">
                         <mat-label>Connection Type</mat-label>
-                        <input matInput value="Browser Connection" readonly>
-                        <mat-hint>This party will connect via browser webhook events</mat-hint>
+                        <input matInput value="Browser Connection" readonly />
+                        <mat-hint
+                          >This party will connect via browser webhook
+                          events</mat-hint
+                        >
                       </mat-form-field>
                     </div>
                   </div>
@@ -131,10 +203,18 @@
 
               <div class="party-info">
                 <h4>Party Information</h4>
-                <p>Each party will generate their own share of the private key. At least {{ threshold }} of {{ totalParties }} parties must participate for any operation to succeed.</p>
+                <p>
+                  Each party will generate their own share of the private key.
+                  At least {{ threshold }} of {{ totalParties }} parties must
+                  participate for any operation to succeed.
+                </p>
                 <mat-chip-set>
-                  <mat-chip color="primary" selected>Threshold: {{ threshold }}</mat-chip>
-                  <mat-chip color="accent" selected>Total Parties: {{ totalParties }}</mat-chip>
+                  <mat-chip color="primary" selected
+                    >Threshold: {{ threshold }}</mat-chip
+                  >
+                  <mat-chip color="accent" selected
+                    >Total Parties: {{ totalParties }}</mat-chip
+                  >
                 </mat-chip-set>
               </div>
             </mat-card-content>
@@ -169,19 +249,29 @@
               <div class="review-grid">
                 <div class="review-item">
                   <span class="label">Operation:</span>
-                  <span class="value">{{ sessionForm.get('operation')?.value === 'key_generation' ? 'Distributed Key Generation' : 'Threshold Signature' }}</span>
+                  <span class="value">{{
+                    sessionForm.get('operation')?.value === 'key_generation'
+                      ? 'Distributed Key Generation'
+                      : 'Threshold Signature'
+                  }}</span>
                 </div>
                 <div class="review-item">
                   <span class="label">Description:</span>
-                  <span class="value">{{ sessionForm.get('description')?.value || 'No description' }}</span>
+                  <span class="value">{{
+                    sessionForm.get('description')?.value || 'No description'
+                  }}</span>
                 </div>
                 <div class="review-item">
                   <span class="label">Blockchain:</span>
-                  <span class="value">{{ sessionForm.get('blockchain')?.value || 'Not specified' }}</span>
+                  <span class="value">{{
+                    sessionForm.get('blockchain')?.value || 'Not specified'
+                  }}</span>
                 </div>
                 <div class="review-item">
                   <span class="label">Threshold Scheme:</span>
-                  <span class="value">{{ sessionForm.get('thresholdScheme')?.value }}</span>
+                  <span class="value">{{
+                    sessionForm.get('thresholdScheme')?.value
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -191,17 +281,32 @@
             <div class="review-section">
               <h4>Parties</h4>
               <div class="parties-review">
-                <div *ngFor="let party of parties; let i = index" class="party-review-item">
+                <div
+                  *ngFor="let party of parties; let i = index"
+                  class="party-review-item"
+                >
                   <div class="party-header">
                     <h5>{{ partiesForm.get('party' + i + 'Name')?.value }}</h5>
-                    <mat-chip *ngIf="partiesForm.get('party' + i + 'Participate')?.value" color="primary" selected>
+                    <mat-chip
+                      *ngIf="
+                        partiesForm.get('party' + i + 'Participate')?.value
+                      "
+                      color="primary"
+                      selected
+                    >
                       Browser Party
                     </mat-chip>
                   </div>
-                  <p class="party-url" *ngIf="!partiesForm.get('party' + i + 'Participate')?.value">
+                  <p
+                    class="party-url"
+                    *ngIf="!partiesForm.get('party' + i + 'Participate')?.value"
+                  >
                     {{ partiesForm.get('party' + i + 'Url')?.value }}
                   </p>
-                  <p class="party-url browser-connection-url" *ngIf="partiesForm.get('party' + i + 'Participate')?.value">
+                  <p
+                    class="party-url browser-connection-url"
+                    *ngIf="partiesForm.get('party' + i + 'Participate')?.value"
+                  >
                     Browser Connection (Webhook Events)
                   </p>
                 </div>
@@ -213,12 +318,22 @@
             <div class="review-section">
               <h4>Security Information</h4>
               <div class="security-info">
-                <p><strong>Important:</strong> This system uses true threshold cryptography where:</p>
+                <p>
+                  <strong>Important:</strong> This system uses true threshold
+                  cryptography where:
+                </p>
                 <ul>
                   <li>Each party generates their own share independently</li>
-                  <li>No single entity ever has access to the complete private key</li>
-                  <li>The coordinator acts only as a messenger between parties</li>
-                  <li>All cryptographic operations are performed by the parties themselves</li>
+                  <li>
+                    No single entity ever has access to the complete private key
+                  </li>
+                  <li>
+                    The coordinator acts only as a messenger between parties
+                  </li>
+                  <li>
+                    All cryptographic operations are performed by the parties
+                    themselves
+                  </li>
                 </ul>
               </div>
             </div>
@@ -228,7 +343,12 @@
               <mat-icon>arrow_back</mat-icon>
               Back
             </button>
-            <button mat-raised-button color="primary" (click)="createSession()" [disabled]="creating">
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="createSession()"
+              [disabled]="creating"
+            >
               <mat-icon>add</mat-icon>
               {{ creating ? 'Creating Session...' : 'Create Session' }}
             </button>
@@ -248,8 +368,11 @@
         </mat-card-title>
       </mat-card-header>
       <mat-card-content class="success-content">
-        <p>Your TLS-MCP session has been initialized and is ready for distributed key generation.</p>
-        
+        <p>
+          Your TLS-MCP session has been initialized and is ready for distributed
+          key generation.
+        </p>
+
         <div class="session-info">
           <div class="info-item">
             <span class="label">Session ID:</span>
@@ -270,11 +393,15 @@
           <mat-icon>refresh</mat-icon>
           Create Another Session
         </button>
-        <button mat-raised-button color="primary" [routerLink]="['/sessions', createdSessionId]">
+        <button
+          mat-raised-button
+          color="primary"
+          [routerLink]="['/server-coordinator/sessions', createdSessionId]"
+        >
           <mat-icon>visibility</mat-icon>
           View Session
         </button>
       </mat-card-actions>
     </mat-card>
   </div>
-</div> 
+</div>

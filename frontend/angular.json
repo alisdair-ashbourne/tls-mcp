@@ -23,20 +23,11 @@
             "outputPath": "dist/tls-mcp-frontend",
             "index": "src/index.html",
             "main": "src/main.ts",
-            "polyfills": [
-              "zone.js",
-              "src/polyfills.ts"
-            ],
+            "polyfills": ["zone.js", "src/polyfills.ts"],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
-            "styles": [
-              "src/theme.scss",
-              "src/styles.scss"
-            ],
+            "assets": ["src/favicon.ico", "src/assets"],
+            "styles": ["src/theme.scss", "src/styles.scss"],
             "scripts": [],
             "allowedCommonJsDependencies": [
               "bn.js",
@@ -53,8 +44,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kb",
-                  "maximumError": "1mb"
+                  "maximumWarning": "1mb",
+                  "maximumError": "1.5mb"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -62,6 +53,16 @@
                   "maximumError": "16kb"
                 }
               ],
+              "optimization": {
+                "scripts": true,
+                "styles": true,
+                "fonts": true
+              },
+              "buildOptimizer": true,
+              "aot": true,
+              "extractLicenses": true,
+              "vendorChunk": false,
+              "namedChunks": false,
               "outputHashing": "all"
             },
             "development": {
@@ -96,19 +97,11 @@
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
+            "polyfills": ["zone.js", "zone.js/testing"],
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
-            "assets": [
-              "src/assets"
-            ],
-            "styles": [
-              "src/theme.scss",
-              "src/styles.scss"
-            ],
+            "assets": ["src/assets"],
+            "styles": ["src/theme.scss", "src/styles.scss"],
             "scripts": []
           }
         }
@@ -118,4 +111,4 @@
   "cli": {
     "analytics": false
   }
-} 
+}

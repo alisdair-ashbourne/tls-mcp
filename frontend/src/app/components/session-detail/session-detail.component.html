@@ -1,13 +1,20 @@
 <div class="session-detail-container">
   <div class="header">
-    <button mat-icon-button routerLink="/sessions">
+    <button
+      mat-icon-button
+      routerLink="/server-coordinator/sessions"
+      class="back-button"
+    >
       <mat-icon>arrow_back</mat-icon>
     </button>
-    <h1>Session Details</h1>
+    <div class="header-content">
+      <h1>Session Details</h1>
+      <p *ngIf="sessionId" class="session-id">Session ID: {{ sessionId }}</p>
+    </div>
   </div>
 
-  <div *ngIf="loading" class="loading">
-    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner></mat-spinner>
     <p>Loading session details...</p>
   </div>
 
@@ -21,251 +28,526 @@
         </mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <!-- Party Participation Indicator -->
-        <div *ngIf="thisPartyId !== null" class="participation-indicator">
-          <mat-chip color="primary" selected>
-            <mat-icon>person</mat-icon>
-            You are participating as Party {{ thisPartyId }}
-          </mat-chip>
-        </div>
-        
         <div class="overview-grid">
           <div class="overview-item">
-            <span class="label">Session ID:</span>
-            <span class="value">{{ session.sessionId }}</span>
+            <span class="label">Operation:</span>
+            <span class="value">{{ session.operation }}</span>
           </div>
           <div class="overview-item">
             <span class="label">Status:</span>
-            <span class="value">
-              <mat-chip [color]="getStatusColor(session.status)" selected>
-                {{ session.status }}
-              </mat-chip>
-            </span>
-          </div>
-          <div class="overview-item">
-            <span class="label">Operation:</span>
-            <span class="value">
-              <mat-chip [color]="getOperationColor(session.operation)" selected>
-                {{ session.operation === 'key_generation' ? 'Distributed Key Generation' : 'Threshold Signature' }}
-              </mat-chip>
-            </span>
+            <mat-chip [color]="getStatusColor(session.status)">
+              <mat-icon>{{ getStatusIcon(session.status) }}</mat-icon>
+              {{ session.status }}
+            </mat-chip>
           </div>
           <div class="overview-item">
             <span class="label">Created:</span>
-            <span class="value">{{ session.createdAt | date:'medium' }}</span>
+            <span class="value">{{ formatDate(session.createdAt) }}</span>
           </div>
           <div class="overview-item">
             <span class="label">Expires:</span>
-            <span class="value">{{ session.expiresAt | date:'medium' }}</span>
-          </div>
-          <div class="overview-item" *ngIf="session.metadata?.blockchain">
-            <span class="label">Blockchain:</span>
-            <span class="value">{{ session.metadata.blockchain }}</span>
+            <span class="value">{{ formatDate(session.expiresAt) }}</span>
           </div>
           <div class="overview-item" *ngIf="session.metadata?.walletAddress">
-            <span class="label">Threshold Wallet Address:</span>
+            <span class="label">Wallet Address:</span>
             <div class="wallet-address">
-              <mat-icon class="wallet-icon">account_balance_wallet</mat-icon>
-              <code class="wallet-code">{{ session.metadata.walletAddress }}</code>
-              <button mat-icon-button 
-                      [cdkCopyToClipboard]="session.metadata.walletAddress || ''"
-                      (cdkCopyToClipboardCopied)="onCopySuccess()"
-                      matTooltip="Copy wallet address"
-                      class="copy-button">
+              <span class="value">{{
+                formatAddress(session.metadata.walletAddress)
+              }}</span>
+              <button
+                mat-icon-button
+                (click)="copyToClipboard(session.metadata.walletAddress)"
+                matTooltip="Copy full address"
+              >
                 <mat-icon>content_copy</mat-icon>
               </button>
             </div>
           </div>
-          <div class="overview-item" *ngIf="!session.metadata?.walletAddress && session.status !== 'initialized'">
-            <span class="label">Threshold Wallet Address:</span>
-            <span class="value">
-              <mat-chip color="accent" selected>
-                <mat-icon>schedule</mat-icon>
-                Pending DKG Completion
-              </mat-chip>
-            </span>
+          <div class="overview-item" *ngIf="isActingAsParty">
+            <span class="label">Acting as:</span>
+            <mat-chip color="primary">
+              <mat-icon>person</mat-icon>
+              Party {{ currentPartyId }}
+            </mat-chip>
           </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Parties Status -->
-    <mat-card class="parties-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>people</mat-icon>
-          Parties Status
-        </mat-card-title>
-        <mat-card-subtitle>{{ session.parties.length }} parties involved</mat-card-subtitle>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="parties-grid">
-          <div *ngFor="let party of session.parties" 
-               class="party-item"
-               [class.current-party]="thisPartyId === party.partyId">
-            <div class="party-header">
-              <mat-icon [class]="getPartyStatusIcon(party.status)">{{ getPartyStatusIcon(party.status) }}</mat-icon>
-              <div class="party-info">
-                <div class="party-name">{{ party.partyName }}</div>
-                <div class="party-id">Party {{ party.partyId }}</div>
-                <div class="party-wallet" *ngIf="getPartyWalletAddress(party.partyId)">
-                  <mat-icon class="wallet-icon">account_balance_wallet</mat-icon>
-                  <code>{{ getPartyWalletAddress(party.partyId) }}</code>
-                </div>
-              </div>
-              <mat-chip [color]="getPartyStatusColor(party.status)" selected>
-                {{ party.status }}
-              </mat-chip>
-              <mat-chip *ngIf="thisPartyId === party.partyId" color="primary" selected>
-                <mat-icon>person</mat-icon>
-                You
-              </mat-chip>
-            </div>
-            <div class="party-details" *ngIf="party.lastSeen">
-              <small>Last seen: {{ party.lastSeen | date:'short' }}</small>
+          <div class="overview-item" *ngIf="currentWalletAddress">
+            <span class="label">My Wallet:</span>
+            <div class="wallet-address">
+              <span class="value">{{
+                formatAddress(currentWalletAddress)
+              }}</span>
+              <button
+                mat-icon-button
+                (click)="copyToClipboard(currentWalletAddress)"
+                matTooltip="Copy full address"
+              >
+                <mat-icon>content_copy</mat-icon>
+              </button>
             </div>
           </div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Operations -->
-    <mat-card class="operations-card">
+    <!-- Action Buttons -->
+    <mat-card class="actions-card">
       <mat-card-header>
         <mat-card-title>
-          <mat-icon>build</mat-icon>
-          Operations
+          <mat-icon>play_circle</mat-icon>
+          Session Actions
         </mat-card-title>
       </mat-card-header>
+
       <mat-card-content>
-        <div class="operations-grid">
-          <button 
-            *ngIf="session.status === 'initialized'"
-            mat-raised-button 
-            color="primary" 
+        <div class="actions-grid">
+          <button
             (click)="initiateDkg()"
-            [disabled]="initiatingDkg">
-            <mat-icon>vpn_key</mat-icon>
-            {{ initiatingDkg ? 'Initiating DKG...' : 'Initiate Distributed Key Generation' }}
+            [disabled]="
+              session.status !== 'initialized' && session.status !== 'failed'
+            "
+            color="primary"
+            mat-raised-button
+          >
+            <mat-icon>key</mat-icon>
+            Initiate DKG
           </button>
-          
-          <button 
-            *ngIf="session.status === 'dkg_completed'"
-            mat-raised-button 
-            color="warn" 
+
+          <button
             (click)="createSignature()"
-            [disabled]="creatingSignature">
+            [disabled]="
+              session.status !== 'dkg_completed' &&
+              session.status !== 'signature_completed'
+            "
+            color="accent"
+            mat-raised-button
+          >
             <mat-icon>edit</mat-icon>
-            {{ creatingSignature ? 'Creating...' : 'Create Threshold Signature' }}
+            Create Signature
+          </button>
+
+          <button mat-raised-button color="warn" (click)="reconstructKey()">
+            <mat-icon>restore</mat-icon>
+            Reconstruct Key
           </button>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Results -->
-    <mat-card *ngIf="signatureResult" class="results-card">
+    <!-- TSS MCP Security Features -->
+    <mat-card class="security-card" *ngIf="isActingAsParty">
       <mat-card-header>
         <mat-card-title>
-          <mat-icon>check_circle</mat-icon>
-          Signature Results
+          <mat-icon>security</mat-icon>
+          TSS MCP Security Features
         </mat-card-title>
+        <mat-card-subtitle>
+          Demonstrate deterministic wallet generation and reconstruction
+        </mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <div class="result-content">
-          <div class="result-item">
-            <span class="label">Message:</span>
-            <span class="value">{{ signatureMessage }}</span>
+        <div class="security-actions">
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="regenerateWalletAddress()"
+            [disabled]="regenerating"
+          >
+            <mat-icon *ngIf="!regenerating">refresh</mat-icon>
+            <mat-spinner *ngIf="regenerating" diameter="20"></mat-spinner>
+            Regenerate Same Wallet Address
+          </button>
+
+          <button
+            mat-stroked-button
+            color="accent"
+            (click)="demonstrateWalletReconstruction()"
+          >
+            <mat-icon>build</mat-icon>
+            Demonstrate Wallet Reconstruction
+          </button>
+
+          <button
+            mat-stroked-button
+            color="primary"
+            (click)="testCommitmentVerification()"
+          >
+            <mat-icon>verified</mat-icon>
+            Test Commitment Verification
+          </button>
+
+          <button
+            mat-stroked-button
+            color="warn"
+            (click)="clearCryptographicMaterial()"
+          >
+            <mat-icon>delete_sweep</mat-icon>
+            Clear Cryptographic Material
+          </button>
+        </div>
+
+        <div *ngIf="regeneratedAddress" class="regeneration-result">
+          <mat-divider></mat-divider>
+          <h4>Regenerated Address</h4>
+          <div class="wallet-address">
+            <span class="value">{{ formatAddress(regeneratedAddress) }}</span>
+            <button
+              mat-icon-button
+              (click)="copyToClipboard(regeneratedAddress)"
+              matTooltip="Copy full address"
+            >
+              <mat-icon>content_copy</mat-icon>
+            </button>
           </div>
-          <div class="result-item">
-            <span class="label">Message Hash:</span>
-            <code class="value">{{ signatureResult.messageHash }}</code>
-          </div>
-          <div class="result-item">
-            <span class="label">Status:</span>
-            <span class="value">{{ signatureResult.status }}</span>
-          </div>
+          <p class="note">
+            <mat-icon>info</mat-icon>
+            This address should always be the same for this session/party
+            combination
+          </p>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Error Display -->
-    <mat-card *ngIf="signatureError" class="error-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>error</mat-icon>
-          Signature Error
-        </mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <p class="error-message">{{ signatureError }}</p>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Webhook Logs -->
-    <mat-card class="logs-card">
-      <mat-card-header>
-        <mat-card-title>
-          <mat-icon>list</mat-icon>
-          Communication Logs
-        </mat-card-title>
-        <mat-card-subtitle>Webhook communication between coordinator and parties</mat-card-subtitle>
-      </mat-card-header>
-      <mat-card-content>
-        <div *ngIf="loadingLogs" class="loading-logs">
-          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-          <p>Loading logs...</p>
-        </div>
-        
-        <div *ngIf="!loadingLogs && webhookLogs.length > 0" class="logs-content">
-          <mat-table [dataSource]="webhookLogs" class="logs-table">
-            <ng-container matColumnDef="timestamp">
-              <mat-header-cell *matHeaderCellDef>Time</mat-header-cell>
-              <mat-cell *matCellDef="let log">{{ log.timestamp | date:'short' }}</mat-cell>
+    <!-- Tabs for detailed information -->
+    <mat-tab-group>
+      <!-- Parties Tab -->
+      <mat-tab label="Parties">
+        <div class="tab-content">
+          <mat-table [dataSource]="session.parties" class="parties-table">
+            <ng-container matColumnDef="party">
+              <th mat-header-cell *matHeaderCellDef>Party</th>
+              <td mat-cell *matCellDef="let party">
+                <div class="party-info">
+                  <mat-icon>person</mat-icon>
+                  <span>{{ party.partyName || 'Party ' + party.partyId }}</span>
+                </div>
+              </td>
             </ng-container>
 
-            <ng-container matColumnDef="partyId">
-              <mat-header-cell *matHeaderCellDef>Party</mat-header-cell>
-              <mat-cell *matCellDef="let log">{{ log.partyId }}</mat-cell>
-            </ng-container>
-
-            <ng-container matColumnDef="direction">
-              <mat-header-cell *matHeaderCellDef>Direction</mat-header-cell>
-              <mat-cell *matCellDef="let log">
-                <mat-chip [color]="log.direction === 'outbound' ? 'primary' : 'accent'" selected>
-                  {{ log.direction }}
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let party">
+                <mat-chip [color]="getStatusColor(party.status)">
+                  <mat-icon>{{ getStatusIcon(party.status) }}</mat-icon>
+                  {{ party.status }}
                 </mat-chip>
-              </mat-cell>
+              </td>
             </ng-container>
 
-            <ng-container matColumnDef="event">
-              <mat-header-cell *matHeaderCellDef>Event</mat-header-cell>
-              <mat-cell *matCellDef="let log">{{ log.event }}</mat-cell>
+            <ng-container matColumnDef="lastSeen">
+              <th mat-header-cell *matHeaderCellDef>Last Seen</th>
+              <td mat-cell *matCellDef="let party">
+                {{ party.lastSeen ? formatDate(party.lastSeen) : 'Never' }}
+              </td>
             </ng-container>
 
-            <ng-container matColumnDef="success">
-              <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
-              <mat-cell *matCellDef="let log">
-                <mat-icon [class]="log.success ? 'success' : 'error'">
-                  {{ log.success ? 'check_circle' : 'error' }}
-                </mat-icon>
-              </mat-cell>
-            </ng-container>
-
-            <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-            <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+            <tr mat-header-row *matHeaderRowDef="partiesColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: partiesColumns"></tr>
           </mat-table>
         </div>
+      </mat-tab>
 
-        <div *ngIf="!loadingLogs && webhookLogs.length === 0" class="no-logs">
-          <mat-icon>info</mat-icon>
-          <p>No communication logs available yet.</p>
+      <!-- Wallet Reconstructions Tab -->
+      <mat-tab label="Wallet Reconstructions">
+        <div class="tab-content">
+          <div *ngIf="walletReconstructions.length === 0" class="empty-state">
+            <mat-icon>wallet</mat-icon>
+            <h3>No Wallet Reconstructions</h3>
+            <p>
+              No wallet reconstructions have been performed for this session
+              yet.
+            </p>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="demonstrateWalletReconstruction()"
+              *ngIf="isActingAsParty"
+            >
+              <mat-icon>build</mat-icon>
+              Demonstrate Reconstruction
+            </button>
+          </div>
+
+          <mat-table
+            [dataSource]="walletReconstructions"
+            *ngIf="walletReconstructions.length > 0"
+          >
+            <ng-container matColumnDef="timestamp">
+              <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+              <td mat-cell *matCellDef="let reconstruction">
+                {{ formatDate(reconstruction.reconstructionTimestamp) }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="walletAddress">
+              <th mat-header-cell *matHeaderCellDef>Wallet Address</th>
+              <td mat-cell *matCellDef="let reconstruction">
+                <div class="wallet-address">
+                  <span class="value">{{
+                    formatAddress(reconstruction.walletAddress)
+                  }}</span>
+                  <button
+                    mat-icon-button
+                    (click)="copyToClipboard(reconstruction.walletAddress)"
+                    matTooltip="Copy full address"
+                  >
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="parties">
+              <th mat-header-cell *matHeaderCellDef>Participating Parties</th>
+              <td mat-cell *matCellDef="let reconstruction">
+                {{
+                  formatParticipatingParties(
+                    reconstruction.participatingParties
+                  )
+                }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="verified">
+              <th mat-header-cell *matHeaderCellDef>Verified</th>
+              <td mat-cell *matCellDef="let reconstruction">
+                <mat-chip
+                  [color]="reconstruction.verified ? 'success' : 'warn'"
+                >
+                  <mat-icon>{{
+                    reconstruction.verified ? 'verified' : 'warning'
+                  }}</mat-icon>
+                  {{ reconstruction.verified ? 'Verified' : 'Unverified' }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="reconstructionColumns"></tr>
+            <tr
+              mat-row
+              *matRowDef="let row; columns: reconstructionColumns"
+            ></tr>
+          </mat-table>
+        </div>
+      </mat-tab>
+
+      <!-- TSS Commitments Tab -->
+      <mat-tab label="TSS Commitments" *ngIf="isActingAsParty">
+        <div class="tab-content">
+          <div *ngIf="commitments.length === 0" class="empty-state">
+            <mat-icon>lock</mat-icon>
+            <h3>No Commitments</h3>
+            <p>
+              No cryptographic commitments have been generated for this session
+              yet.
+            </p>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="testCommitmentVerification()"
+            >
+              <mat-icon>verified</mat-icon>
+              Generate Test Commitment
+            </button>
+          </div>
+
+          <div *ngIf="commitments.length > 0" class="commitments-list">
+            <mat-expansion-panel *ngFor="let commitment of commitments">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>lock</mat-icon>
+                  Party {{ commitment.partyId }} Commitment
+                </mat-panel-title>
+                <mat-panel-description>
+                  {{ formatDate(commitment.timestamp) }}
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+
+              <div class="commitment-details">
+                <div class="detail-item">
+                  <span class="label">Session ID:</span>
+                  <span class="value">{{ commitment.sessionId }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Party ID:</span>
+                  <span class="value">{{ commitment.partyId }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Commitment Hash:</span>
+                  <div class="commitment-hash">
+                    <span class="value">{{ commitment.commitment }}</span>
+                    <button
+                      mat-icon-button
+                      (click)="copyToClipboard(commitment.commitment)"
+                      matTooltip="Copy commitment hash"
+                    >
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Timestamp:</span>
+                  <span class="value">{{
+                    formatDate(commitment.timestamp)
+                  }}</span>
+                </div>
+              </div>
+            </mat-expansion-panel>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Reconstructed Wallets Tab -->
+      <mat-tab
+        label="Reconstructed Wallets"
+        *ngIf="reconstructedWallets.length > 0"
+      >
+        <div class="tab-content">
+          <div
+            *ngFor="let wallet of reconstructedWallets"
+            class="wallet-reconstruction"
+          >
+            <mat-card>
+              <mat-card-header>
+                <mat-card-title>
+                  <mat-icon>account_balance_wallet</mat-icon>
+                  Reconstructed Wallet
+                </mat-card-title>
+                <mat-card-subtitle>
+                  {{ formatDate(wallet.reconstructionTimestamp) }}
+                </mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="wallet-details">
+                  <div class="detail-item">
+                    <span class="label">Wallet Address:</span>
+                    <div class="wallet-address">
+                      <span class="value">{{ wallet.walletAddress }}</span>
+                      <button
+                        mat-icon-button
+                        (click)="copyToClipboard(wallet.walletAddress)"
+                        matTooltip="Copy wallet address"
+                      >
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="label">Public Key:</span>
+                    <div class="public-key">
+                      <span class="value"
+                        >{{ wallet.publicKey.substring(0, 50) }}...</span
+                      >
+                      <button
+                        mat-icon-button
+                        (click)="copyToClipboard(wallet.publicKey)"
+                        matTooltip="Copy public key"
+                      >
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="label">Participating Parties:</span>
+                    <span class="value">{{
+                      formatParticipatingParties(wallet.participatingParties)
+                    }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Session Metadata Tab -->
+      <mat-tab label="Metadata">
+        <div class="tab-content">
+          <div class="metadata-grid">
+            <div class="metadata-item" *ngIf="session.metadata?.description">
+              <span class="label">Description:</span>
+              <span class="value">{{ session.metadata.description }}</span>
+            </div>
+            <div class="metadata-item" *ngIf="session.metadata?.blockchain">
+              <span class="label">Blockchain:</span>
+              <span class="value">{{ session.metadata.blockchain }}</span>
+            </div>
+            <div class="metadata-item" *ngIf="session.metadata?.message">
+              <span class="label">Message:</span>
+              <span class="value">{{ session.metadata.message }}</span>
+            </div>
+            <div class="metadata-item" *ngIf="session.messageHash">
+              <span class="label">Message Hash:</span>
+              <div class="hash-value">
+                <span class="value">{{ session.messageHash }}</span>
+                <button
+                  mat-icon-button
+                  (click)="copyToClipboard(session.messageHash)"
+                  matTooltip="Copy message hash"
+                >
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+              </div>
+            </div>
+            <div class="metadata-item" *ngIf="session.signature">
+              <span class="label">Signature:</span>
+              <div class="signature-value">
+                <span class="value"
+                  >{{ session.signature.substring(0, 50) }}...</span
+                >
+                <button
+                  mat-icon-button
+                  (click)="copyToClipboard(session.signature)"
+                  matTooltip="Copy signature"
+                >
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+
+    <!-- Security Notice -->
+    <mat-card class="security-notice-card">
+      <mat-card-content>
+        <div class="security-notice">
+          <mat-icon color="primary">security</mat-icon>
+          <div class="notice-content">
+            <h4>TSS MCP Security</h4>
+            <p>
+              This system implements true threshold cryptography with
+              deterministic wallet generation. The same session and party
+              combination will always produce the same wallet address,
+              demonstrating consistent reconstruction capabilities while
+              maintaining security.
+            </p>
+            <ul>
+              <li>
+                ✅ Deterministic share generation based on session/party ID
+              </li>
+              <li>✅ Cryptographic commitments verify share integrity</li>
+              <li>✅ Wallet addresses can be consistently regenerated</li>
+              <li>✅ No private keys or shares stored in IndexedDB</li>
+              <li>✅ All cryptographic material kept in memory only</li>
+            </ul>
+          </div>
         </div>
       </mat-card-content>
     </mat-card>
   </div>
 
-  <div *ngIf="!loading && !session" class="error">
+  <div *ngIf="!loading && !session" class="error-state">
     <mat-icon>error</mat-icon>
-    <p>Session not found or could not be loaded.</p>
+    <h2>Session Not Found</h2>
+    <p>The requested session could not be found or has expired.</p>
+    <button
+      mat-raised-button
+      color="primary"
+      routerLink="/server-coordinator/sessions"
+    >
+      <mat-icon>arrow_back</mat-icon>
+      Back to Sessions
+    </button>
   </div>
 </div>

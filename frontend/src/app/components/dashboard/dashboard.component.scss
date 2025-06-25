@@ -10,7 +10,7 @@
 }
 
 .header h1 {
-  color: #07A673;
+  color: #07a673;
   margin-bottom: 8px;
 }
 
@@ -28,7 +28,7 @@
   background: #1e1e1e;
   border: 1px solid #333333;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .status-grid {
@@ -49,7 +49,7 @@
 }
 
 .status-item:hover {
-  border-color: #07A673;
+  border-color: #07a673;
   box-shadow: 0 2px 8px rgba(7, 166, 115, 0.2);
 }
 
@@ -60,7 +60,7 @@
 }
 
 .status-item mat-icon.online {
-  color: #07A673;
+  color: #07a673;
 }
 
 .status-item mat-icon.offline {
@@ -132,7 +132,7 @@
 
 .session-item:hover {
   background: rgba(7, 166, 115, 0.05);
-  border-color: #07A673;
+  border-color: #07a673;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(7, 166, 115, 0.2);
 }
@@ -150,7 +150,7 @@
 
 .session-header h3 {
   margin: 0;
-  color: #07A673;
+  color: #07a673;
   font-size: 16px;
 }
 
@@ -223,7 +223,7 @@
 
 .storage-item .value {
   font-weight: 600;
-  color: #07A673;
+  color: #07a673;
   background: rgba(7, 166, 115, 0.1);
   padding: 2px 8px;
   border-radius: 4px;
@@ -303,7 +303,7 @@ mat-card-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #07A673;
+  color: #07a673;
 }
 
 mat-card-subtitle {
@@ -326,7 +326,7 @@ mat-card-actions {
   padding: 6px 12px !important;
   font-size: 11px !important;
   font-weight: 500 !important;
-  
+
   mat-icon {
     font-size: 14px !important;
     width: 14px !important;
@@ -339,38 +339,38 @@ mat-card-actions {
   .dashboard-container {
     padding: 10px;
   }
-  
+
   .status-grid,
   .storage-info,
   .info-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .actions-grid {
     flex-direction: column;
   }
-  
+
   .actions-grid button {
     min-width: auto;
   }
-  
+
   .session-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .session-details {
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .storage-actions {
     flex-direction: column;
   }
-  
+
   .security-notice {
     flex-direction: column;
     text-align: center;
   }
-} 
+}

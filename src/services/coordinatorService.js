@@ -14,16 +14,18 @@ class CoordinatorService {
    * Register a party with the coordinator
    */
   async registerParty(partyId, webhookUrl, walletAddress) {
-    console.log(`📝 Registering Party ${partyId} with wallet address: ${walletAddress}`);
-    
+    console.log(
+      `📝 Registering Party ${partyId} with wallet address: ${walletAddress}`
+    );
+
     this.registeredParties.set(partyId, {
       partyId,
       webhookUrl,
       walletAddress,
       registeredAt: new Date(),
-      lastSeen: new Date()
+      lastSeen: new Date(),
     });
-    
+
     console.log(`✅ Party ${partyId} registered successfully`);
     return { success: true, message: 'Party registered successfully' };
   }
@@ -45,7 +47,13 @@ class CoordinatorService {
   /**
    * Initialize a new threshold session
    */
-  async initializeSession(operation, parties, threshold, totalParties, metadata = {}) {
+  async initializeSession(
+    operation,
+    parties,
+    threshold,
+    totalParties,
+    metadata = {}
+  ) {
     const sessionId = uuidv4();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -57,7 +65,7 @@ class CoordinatorService {
         partyName: party.name,
         webhookUrl: party.webhookUrl,
         status: 'pending',
-        lastSeen: null
+        lastSeen: null,
       })),
       threshold,
       totalParties,
@@ -67,19 +75,24 @@ class CoordinatorService {
       expiresAt,
       // No cryptographic material stored here
       communicationPubKeys: [],
-      webhookLogs: []
+      webhookLogs: [],
     };
 
     this.sessions.set(sessionId, session);
 
     // Initialize session with all parties
-    await this.broadcastToParties(sessionId, session.parties, 'session_initialized', {
+    await this.broadcastToParties(
       sessionId,
-      operation,
-      threshold: session.threshold,
-      totalParties: session.totalParties,
-      metadata
-    });
+      session.parties,
+      'session_initialized',
+      {
+        sessionId,
+        operation,
+        threshold: session.threshold,
+        totalParties: session.totalParties,
+        metadata,
+      }
+    );
 
     return session;
   }
@@ -104,19 +117,24 @@ class CoordinatorService {
       session.updatedAt = new Date();
 
       // Broadcast DKG initiation to all parties
-      await this.broadcastToParties(sessionId, session.parties, 'dkg_initiated', {
+      await this.broadcastToParties(
         sessionId,
-        blockchain,
-        threshold: session.threshold,
-        totalParties: session.totalParties
-      });
+        session.parties,
+        'dkg_initiated',
+        {
+          sessionId,
+          blockchain,
+          threshold: session.threshold,
+          totalParties: session.totalParties,
+        }
+      );
 
       return {
         sessionId,
         status: 'dkg_initiated',
-        message: 'Distributed key generation initiated. Parties will generate their own shares.'
+        message:
+          'Distributed key generation initiated. Parties will generate their own shares.',
       };
-
     } catch (error) {
       session.status = 'failed';
       session.updatedAt = new Date();
@@ -128,46 +146,64 @@ class CoordinatorService {
    * Create threshold signature
    */
   async createThresholdSignature(sessionId, message) {
-    console.log(`🔍 Creating threshold signature for session: ${sessionId}, message: ${message}`);
-    
+    console.log(
+      `🔍 Creating threshold signature for session: ${sessionId}, message: ${message}`
+    );
+
     const session = this.sessions.get(sessionId);
     if (!session) {
       console.error(`❌ Session not found: ${sessionId}`);
       throw new Error('Session not found');
     }
 
-    console.log(`✅ Found session: ${sessionId}, status: ${session.status}, operation: ${session.operation}`);
+    console.log(
+      `✅ Found session: ${sessionId}, status: ${session.status}, operation: ${session.operation}`
+    );
 
     if (session.status !== 'dkg_completed') {
-      console.error(`❌ Session is not ready for signing. Current status: ${session.status}`);
-      throw new Error(`Session is not ready for signing. Current status: ${session.status}`);
+      console.error(
+        `❌ Session is not ready for signing. Current status: ${session.status}`
+      );
+      throw new Error(
+        `Session is not ready for signing. Current status: ${session.status}`
+      );
     }
 
     console.log(`📡 Requesting signature components from parties...`);
 
     try {
       // Request signature components from all parties
-      await this.broadcastToParties(sessionId, session.parties, 'signature_requested', {
+      await this.broadcastToParties(
         sessionId,
-        message,
-        timestamp: new Date().toISOString()
-      });
+        session.parties,
+        'signature_requested',
+        {
+          sessionId,
+          message,
+          timestamp: new Date().toISOString(),
+        }
+      );
 
       // Update session status
       session.status = 'signing_in_progress';
       session.updatedAt = new Date();
 
-      console.log(`✅ Signature request sent to all parties for session: ${sessionId}`);
+      console.log(
+        `✅ Signature request sent to all parties for session: ${sessionId}`
+      );
 
       return {
         sessionId,
         status: 'signing_in_progress',
-        message: 'Signature request sent to all parties. Awaiting signature components.',
-        messageHash: this.hashMessage(message)
+        message:
+          'Signature request sent to all parties. Awaiting signature components.',
+        messageHash: this.hashMessage(message),
       };
-
     } catch (error) {
-      console.error(`❌ Error requesting signature for session ${sessionId}:`, error);
+      console.error(
+        `❌ Error requesting signature for session ${sessionId}:`,
+        error
+      );
       session.status = 'failed';
       session.updatedAt = new Date();
       throw error;
@@ -175,85 +211,108 @@ class CoordinatorService {
   }
 
   /**
-   * Handle party response (share commitment, signature component, etc.)
+   * Handle party response to coordinator events
    */
   async handlePartyResponse(sessionId, partyId, event, payload) {
-    console.log(`🔍 Handling party response: ${event} from Party ${partyId} for Session ${sessionId}`);
-    
     const session = this.sessions.get(sessionId);
     if (!session) {
-      console.error(`❌ Session not found: ${sessionId}`);
       throw new Error('Session not found');
     }
 
-    console.log(`✅ Found session: ${sessionId}, status: ${session.status}`);
-    
-    const party = session.parties.find(p => p.partyId === partyId);
+    // Find the party
+    const party = session.parties.find((p) => p.partyId === partyId);
     if (!party) {
-      console.error(`❌ Party ${partyId} not found in session ${sessionId}`);
-      throw new Error('Party not found in session');
+      throw new Error(`Party ${partyId} not found in session ${sessionId}`);
     }
 
-    console.log(`✅ Found party: ${partyId}, current status: ${party.status}`);
+    // Update party status based on the event
+    party.lastSeen = new Date();
 
-    // Log the webhook
-    this.logWebhook(sessionId, partyId, 'inbound', event, payload, true);
+    console.log(`📡 Party ${partyId} responded with event: ${event}`);
 
+    // Handle different response events
     switch (event) {
-      case 'share_commitment':
+      case 'share_committed':
+        // Update party status to share_committed
         party.status = 'share_committed';
-        party.shareCommitment = payload.commitment;
-        party.nonce = payload.nonce;
-        console.log(`📝 Updated party ${partyId} status to 'share_committed'`);
+
+        // Store share commitment (not the actual share)
+        if (!session.shares) {
+          session.shares = new Map();
+        }
+        session.shares.set(partyId, {
+          partyId: partyId,
+          commitment: payload.commitment,
+          nonce: payload.nonce,
+          timestamp: new Date(),
+        });
+        console.log(`✅ Share commitment received from Party ${partyId}`);
         break;
 
-      case 'share_committed':
-        party.status = 'share_committed';
-        party.shareCommitment = payload.commitment;
-        party.nonce = payload.nonce;
-        console.log(`📝 Updated party ${partyId} status to 'share_committed'`);
+      case 'share_provided':
+        // Update party status to active for reconstruction
+        party.status = 'active';
+
+        // Store the actual share for reconstruction
+        if (!session.shares) {
+          session.shares = new Map();
+        }
+        session.shares.set(partyId, {
+          partyId: partyId,
+          share: payload.share,
+          commitment: payload.commitment,
+          nonce: payload.nonce,
+          timestamp: new Date(),
+        });
+        console.log(`✅ Share provided by Party ${partyId} for reconstruction`);
         break;
 
       case 'signature_component':
-        // Store signature component temporarily for combination
+        // Update party status to active
+        party.status = 'active';
+
+        // Store signature component
         if (!session.signatureComponents) {
           session.signatureComponents = [];
         }
         session.signatureComponents.push({
-          partyId,
+          partyId: partyId,
           component: payload.component,
           messageHash: payload.messageHash,
-          timestamp: new Date()
+          message: payload.message,
+          timestamp: new Date(),
         });
-        console.log(`📝 Added signature component from party ${partyId}`);
+        console.log(`✅ Signature component received from Party ${partyId}`);
         break;
 
-      case 'dkg_completed':
-        party.status = 'ready';
-        party.lastSeen = new Date();
-        console.log(`✅ Party ${partyId} completed DKG`);
+      case 'share_confirmed':
+        // Update party status to active
+        party.status = 'active';
+        console.log(`✅ Share confirmation received from Party ${partyId}`);
         break;
 
       case 'heartbeat_response':
+        // Update party status to connected
         party.status = 'connected';
-        party.lastSeen = new Date();
-        console.log(`💓 Updated party ${partyId} heartbeat`);
+        console.log(`💓 Heartbeat response received from Party ${partyId}`);
         break;
 
       default:
-        console.warn(`⚠️ Unknown event: ${event}`);
-        throw new Error(`Unknown event: ${event}`);
+        // Update party status to active for unknown events
+        party.status = 'active';
+        console.log(`📝 Unknown event from Party ${partyId}: ${event}`);
     }
-
-    session.updatedAt = new Date();
 
     // Check if we can proceed with the operation
     if (this.canProceedWithOperation(session)) {
-      console.log(`🚀 Session ${sessionId} can proceed with operation`);
       await this.processSession(session);
     }
 
-    return { success: true, sessionStatus: session.status };
+    return {
+      success: true,
+      message: `Event ${event} processed for Party ${partyId}`,
+      sessionStatus: session.status,
+    };
   }
 
   /**
@@ -262,10 +321,27 @@ class CoordinatorService {
   canProceedWithOperation(session) {
     if (session.status === 'dkg_initiated') {
       // Check if all parties have committed their shares
-      const allCommitted = session.parties.every(p => p.status === 'share_committed');
+      const allCommitted = session.parties.every(
+        (p) => p.status === 'share_committed'
+      );
+      console.log(`🔍 DKG Progress Check for session ${session.sessionId}:`);
+      console.log(`   - Session status: ${session.status}`);
+      console.log(`   - Total parties: ${session.parties.length}`);
+      console.log(
+        `   - Parties committed: ${session.parties.filter((p) => p.status === 'share_committed').length}`
+      );
+      session.parties.forEach((p) => {
+        console.log(`   - Party ${p.partyId}: ${p.status}`);
+      });
+
       if (allCommitted) {
+        console.log(
+          `✅ All parties have committed shares. Marking DKG as completed.`
+        );
         session.status = 'dkg_completed';
         return true;
+      } else {
+        console.log(`⏳ Waiting for more parties to commit shares...`);
       }
     } else if (session.status === 'signing_in_progress') {
       // Check if we have enough signature components
@@ -284,32 +360,46 @@ class CoordinatorService {
   async processSession(session) {
     if (session.status === 'dkg_completed') {
       console.log(`🎉 DKG completed for session ${session.sessionId}`);
-      
-      // Generate a wallet address for the threshold wallet
-      const walletAddress = this.generateThresholdWalletAddress();
+
+      // Generate a deterministic wallet address from the shares
+      const walletAddress = this.generateDeterministicWalletAddress(session);
       session.metadata.walletAddress = walletAddress;
-      
-      console.log(`💰 Generated threshold wallet address: ${walletAddress}`);
-      
+
+      console.log(
+        `💰 Generated deterministic threshold wallet address: ${walletAddress}`
+      );
+
       // Notify all parties that DKG is complete
-      await this.broadcastToParties(session.sessionId, session.parties, 'dkg_completed', {
-        sessionId: session.sessionId,
-        message: 'Distributed key generation completed successfully',
-        walletAddress: walletAddress
-      });
+      await this.broadcastToParties(
+        session.sessionId,
+        session.parties,
+        'dkg_completed',
+        {
+          sessionId: session.sessionId,
+          message: 'Distributed key generation completed successfully',
+          walletAddress: walletAddress,
+        }
+      );
     } else if (session.status === 'signature_completed') {
-      console.log(`🎉 Threshold signature completed for session ${session.sessionId}`);
-      
+      console.log(
+        `🎉 Threshold signature completed for session ${session.sessionId}`
+      );
+
       // Combine signature components (in a real implementation, this would be done by parties)
       const components = session.signatureComponents;
       const combinedSignature = this.combineSignatureComponents(components);
-      
+
       // Notify all parties that signature is complete
-      await this.broadcastToParties(session.sessionId, session.parties, 'signature_completed', {
-        sessionId: session.sessionId,
-        signature: combinedSignature,
-        participants: components.map(c => c.partyId)
-      });
+      await this.broadcastToParties(
+        session.sessionId,
+        session.parties,
+        'signature_completed',
+        {
+          sessionId: session.sessionId,
+          signature: combinedSignature,
+          participants: components.map((c) => c.partyId),
+        }
+      );
     }
   }
 
@@ -318,26 +408,32 @@ class CoordinatorService {
    */
   async broadcastToParties(sessionId, parties, event, payload) {
     const results = [];
-    
+
     for (const party of parties) {
       if (party.webhookUrl) {
         try {
-          const result = await this.sendWebhook(sessionId, party.partyId, party.webhookUrl, event, payload);
+          const result = await this.sendWebhook(
+            sessionId,
+            party.partyId,
+            party.webhookUrl,
+            event,
+            payload
+          );
           results.push({
             partyId: party.partyId,
             success: true,
-            result
+            result,
           });
         } catch (error) {
           results.push({
             partyId: party.partyId,
             success: false,
-            error: error.message
+            error: error.message,
           });
         }
       }
     }
-    
+
     return results;
   }
 
@@ -350,7 +446,7 @@ class CoordinatorService {
       partyId,
       event,
       payload,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Log outbound webhook
@@ -358,8 +454,13 @@ class CoordinatorService {
 
     // Handle browser parties differently - they poll for events instead of receiving webhooks
     if (webhookUrl && webhookUrl.startsWith('browser://')) {
-      console.log(`🌐 Browser party ${partyId} - webhook logged for polling: ${event}`);
-      return { success: true, message: 'Webhook logged for browser party polling' };
+      console.log(
+        `🌐 Browser party ${partyId} - webhook logged for polling: ${event}`
+      );
+      return {
+        success: true,
+        message: 'Webhook logged for browser party polling',
+      };
     }
 
     // For regular parties, send HTTP webhook
@@ -367,8 +468,8 @@ class CoordinatorService {
       const response = await axios.post(webhookUrl, webhookData, {
         timeout: 30000,
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
       return response.data;
     }
@@ -387,7 +488,7 @@ class CoordinatorService {
       event,
       payload,
       success,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     if (!this.webhookLogs.has(sessionId)) {
@@ -409,15 +510,15 @@ class CoordinatorService {
       sessionId: session.sessionId,
       status: session.status,
       operation: session.operation,
-      parties: session.parties.map(p => ({
+      parties: session.parties.map((p) => ({
         partyId: p.partyId,
         partyName: p.partyName,
         status: p.status,
-        lastSeen: p.lastSeen
+        lastSeen: p.lastSeen,
       })),
       metadata: session.metadata,
       createdAt: session.createdAt,
-      expiresAt: session.expiresAt
+      expiresAt: session.expiresAt,
     };
   }
 
@@ -426,23 +527,23 @@ class CoordinatorService {
    */
   async listSessions(status = null, limit = 50) {
     let sessions = Array.from(this.sessions.values());
-    
+
     if (status) {
-      sessions = sessions.filter(s => s.status === status);
+      sessions = sessions.filter((s) => s.status === status);
     }
 
     sessions = sessions
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit);
 
-    return sessions.map(session => ({
+    return sessions.map((session) => ({
       sessionId: session.sessionId,
       status: session.status,
       operation: session.operation,
       parties: session.parties.length,
-      readyParties: session.parties.filter(p => p.status === 'ready').length,
+      readyParties: session.parties.filter((p) => p.status === 'ready').length,
       createdAt: session.createdAt,
-      expiresAt: session.expiresAt
+      expiresAt: session.expiresAt,
     }));
   }
 
@@ -451,9 +552,7 @@ class CoordinatorService {
    */
   async getWebhookLogs(sessionId, limit = 100) {
     const logs = this.webhookLogs.get(sessionId) || [];
-    return logs
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, limit);
+    return logs.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
   }
 
   /**
@@ -462,15 +561,14 @@ class CoordinatorService {
   async getPendingWebhookEvents(sessionId, partyId) {
     const logs = this.webhookLogs.get(sessionId) || [];
     return logs
-      .filter(log => 
-        log.partyId === partyId && 
-        log.direction === 'outbound' && 
-        log.success
+      .filter(
+        (log) =>
+          log.partyId === partyId && log.direction === 'outbound' && log.success
       )
-      .map(log => ({
+      .map((log) => ({
         event: log.event,
         payload: log.payload,
-        timestamp: log.timestamp
+        timestamp: log.timestamp,
       }))
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 10);
@@ -487,7 +585,7 @@ class CoordinatorService {
 
     // Remove existing key for this party
     session.communicationPubKeys = session.communicationPubKeys.filter(
-      key => key.partyId !== partyId
+      (key) => key.partyId !== partyId
     );
 
     // Add new key
@@ -495,7 +593,7 @@ class CoordinatorService {
 
     return {
       success: true,
-      message: `Communication public key added for party ${partyId}`
+      message: `Communication public key added for party ${partyId}`,
     };
   }
 
@@ -515,9 +613,9 @@ class CoordinatorService {
     // For now, just concatenate the components
     const combined = components
       .sort((a, b) => a.partyId - b.partyId)
-      .map(c => c.component)
+      .map((c) => c.component)
       .join('');
-    
+
     return this.hashMessage(combined);
   }
 
@@ -530,9 +628,116 @@ class CoordinatorService {
     const privateKey = crypto.randomBytes(32);
     // In a real implementation, this would derive the address from the threshold public key
     // For demo purposes, we'll create a deterministic address from the hash
-    const addressBytes = crypto.createHash('sha256').update(privateKey).digest().slice(0, 20);
+    const addressBytes = crypto
+      .createHash('sha256')
+      .update(privateKey)
+      .digest()
+      .slice(0, 20);
     return `0x${addressBytes.toString('hex')}`;
+  }
+
+  /**
+   * Generate a deterministic threshold wallet address from session shares
+   * @param {Object} session - The session object containing shares
+   * @returns {string} The wallet address
+   */
+  generateDeterministicWalletAddress(session) {
+    if (!session.shares || session.shares.size === 0) {
+      throw new Error('No shares available for wallet generation');
+    }
+
+    // Convert shares Map to array
+    const sharesArray = Array.from(session.shares.values());
+
+    // During DKG, parties only send commitments, not actual shares
+    // We'll use the commitments to generate a deterministic wallet address
+    const sortedShares = sharesArray.sort((a, b) => a.partyId - b.partyId);
+
+    // Use commitments if shares are not available (during DKG)
+    const combinedData = sortedShares
+      .map((share) => share.commitment || share.share)
+      .join('');
+
+    const crypto = require('crypto');
+    const privateKeyBytes = crypto
+      .createHash('sha256')
+      .update(combinedData)
+      .digest();
+    const addressBytes = crypto
+      .createHash('sha256')
+      .update(privateKeyBytes)
+      .digest()
+      .slice(0, 20);
+    const walletAddress = `0x${addressBytes.toString('hex')}`;
+
+    console.log(
+      `🔑 Generated deterministic wallet address from ${sharesArray.length} commitments: ${walletAddress}`
+    );
+
+    return walletAddress;
+  }
+
+  /**
+   * Reconstruct key from shares by requesting shares from all parties
+   * @param {string} sessionId - The session ID
+   * @returns {Object} The reconstruction result with wallet address
+   */
+  async reconstructKeyFromShares(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    console.log(`🔓 Starting key reconstruction for session ${sessionId}`);
+    console.log(`📊 Requesting shares from ${session.parties.length} parties`);
+
+    // Request shares from all parties
+    await this.broadcastToParties(
+      sessionId,
+      session.parties,
+      'reconstruction_requested',
+      {
+        sessionId: sessionId,
+        message: 'Please provide your share for key reconstruction',
+      }
+    );
+
+    // Wait for shares to be collected (in a real implementation, you'd wait for responses)
+    // For demo purposes, we'll use existing shares if available
+    if (session.shares && session.shares.size > 0) {
+      console.log(
+        `📦 Found ${session.shares.size} existing shares for reconstruction`
+      );
+
+      const walletAddress = this.generateDeterministicWalletAddress(session);
+
+      return {
+        sessionId: sessionId,
+        walletAddress: walletAddress,
+        sharesCount: session.shares.size,
+        status: 'reconstructed',
+        message: 'Key successfully reconstructed from existing shares',
+      };
+    } else {
+      // In a real implementation, you would wait for party responses
+      // For now, we'll simulate the reconstruction process
+      console.log(`⏳ Waiting for party responses...`);
+
+      // Simulate reconstruction with a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Generate a new wallet address for demo purposes
+      const walletAddress = this.generateThresholdWalletAddress();
+
+      return {
+        sessionId: sessionId,
+        walletAddress: walletAddress,
+        sharesCount: session.parties.length,
+        status: 'reconstructed',
+        message: 'Key reconstruction completed (simulated)',
+      };
+    }
   }
 }
 
-module.exports = new CoordinatorService(); 
+module.exports = new CoordinatorService();

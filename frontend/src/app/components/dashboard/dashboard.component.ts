@@ -5,7 +5,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
-import { ApiService, Session, SessionSummary } from '../../services/api.service';
+import {
+  ApiService,
+  Session,
+  SessionSummary,
+} from '../../services/api.service';
 import { IndexedDBService } from '../../services/indexeddb.service';
 import { PartyService } from '../../services/party.service';
 import { MatChipsModule } from '@angular/material/chips';
@@ -25,7 +29,7 @@ import { MatDividerModule } from '@angular/material/divider';
     RouterLink,
   ],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.scss'],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private healthCheckInterval?: any;
@@ -42,26 +46,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   partyCHealthy = false;
   recentSessions: (Session | SessionSummary)[] = [];
   totalSessions = 0;
-  
+
   // Debug properties
   showDebugInfo = false;
   indexedDBData: any = {};
   indexedDBError?: string;
   serverData: any = {};
   serverError?: string;
-  
+
   // Party-specific properties
   isActingAsParty = false;
   currentPartyId: number | null = null;
   partySessions: any[] = [];
   partyWebhookEvents: any[] = [];
-  
+
   systemHealth = {
     status: 'pending',
     checking: false,
     api: 'pending',
     db: 'pending',
-    lastCheck: new Date()
+    lastCheck: new Date(),
   };
 
   constructor(
@@ -100,27 +104,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Check party health
       const partyUrls = [
         'http://localhost:3001/health',
-        'http://localhost:3002/health', 
-        'http://localhost:3003/health'
+        'http://localhost:3002/health',
+        'http://localhost:3003/health',
       ];
 
       const partyHealthChecks = await Promise.allSettled(
-        partyUrls.map(url => fetch(url))
+        partyUrls.map((url) => fetch(url))
       );
 
-      this.partyAHealthy = partyHealthChecks[0].status === 'fulfilled' && partyHealthChecks[0].value.ok;
-      this.partyBHealthy = partyHealthChecks[1].status === 'fulfilled' && partyHealthChecks[1].value.ok;
-      this.partyCHealthy = partyHealthChecks[2].status === 'fulfilled' && partyHealthChecks[2].value.ok;
+      this.partyAHealthy =
+        partyHealthChecks[0].status === 'fulfilled' &&
+        partyHealthChecks[0].value.ok;
+      this.partyBHealthy =
+        partyHealthChecks[1].status === 'fulfilled' &&
+        partyHealthChecks[1].value.ok;
+      this.partyCHealthy =
+        partyHealthChecks[2].status === 'fulfilled' &&
+        partyHealthChecks[2].value.ok;
 
       // Overall system health
-      const allHealthy = this.coordinatorHealthy && this.partyAHealthy && this.partyBHealthy && this.partyCHealthy;
+      const allHealthy =
+        this.coordinatorHealthy &&
+        this.partyAHealthy &&
+        this.partyBHealthy &&
+        this.partyCHealthy;
 
       this.systemHealth = {
         ...this.systemHealth,
         status: allHealthy ? 'OK' : 'Error',
         api: this.coordinatorHealthy ? 'OK' : 'Error',
         db: 'OK', // Assuming DB is ok if coordinator is ok
-        lastCheck: new Date()
+        lastCheck: new Date(),
       };
 
       this.lastHealthCheck = new Date();
@@ -135,7 +149,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         status: 'Error',
         api: 'Error',
         db: 'Unknown',
-        lastCheck: new Date()
+        lastCheck: new Date(),
       };
 
       console.error('System health check failed:', error);
@@ -158,15 +172,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   calculateStats() {
     this.totalSessions = this.recentSessions.length;
-    this.activeSessions = this.recentSessions.filter(s => s.status === 'active').length;
-    this.completedSessions = this.recentSessions.filter(s => s.status === 'completed').length;
-    this.failedSessions = this.recentSessions.filter(s => s.status === 'failed').length;
+    this.activeSessions = this.recentSessions.filter(
+      (s) => s.status === 'dkg_initiated' || s.status === 'signing_in_progress'
+    ).length;
+    this.completedSessions = this.recentSessions.filter(
+      (s) => s.status === 'signature_completed'
+    ).length;
+    this.failedSessions = this.recentSessions.filter(
+      (s) => s.status === 'failed'
+    ).length;
   }
 
   getReadyPartiesCount(session: Session | SessionSummary): number {
     // Handle both Session (with parties array) and SessionSummary (with parties number)
     if (Array.isArray(session.parties)) {
-      return session.parties.filter(p => p.status === 'ready').length;
+      return session.parties.filter((p) => p.status === 'ready').length;
     } else if (typeof session.parties === 'number') {
       // For SessionSummary, use readyParties if available, otherwise assume all parties are ready
       return (session as any).readyParties || session.parties;
@@ -186,11 +206,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getStatusIcon(status: string): string {
     switch (status) {
-      case 'pending': return 'schedule';
-      case 'active': return 'play_circle';
-      case 'completed': return 'check_circle';
-      case 'failed': return 'error';
-      default: return 'help';
+      case 'initialized':
+        return 'schedule';
+      case 'dkg_initiated':
+        return 'vpn_key';
+      case 'dkg_completed':
+        return 'verified';
+      case 'signing_in_progress':
+        return 'edit';
+      case 'signature_completed':
+        return 'check_circle';
+      case 'failed':
+        return 'error';
+      default:
+        return 'help';
     }
   }
 
@@ -216,14 +245,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async syncServerToIndexedDB() {
     try {
       console.log('🔄 Syncing server data to local storage...');
-      
+
       // Load server data first
       await this.loadServerData();
-      
+
       if (this.serverData.sessions?.data) {
         // Clear existing local data
         await this.indexedDBService.debugClearAllData();
-        
+
         // Store each session in local storage (metadata only)
         for (const session of this.serverData.sessions.data) {
           await this.indexedDBService.storeSession({
@@ -234,19 +263,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
               parties: session.parties,
               readyParties: session.readyParties,
               createdAt: session.createdAt,
-              expiresAt: session.expiresAt
+              expiresAt: session.expiresAt,
             },
             createdAt: new Date(session.createdAt),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           });
         }
-        
-        console.log(`✅ Synced ${this.serverData.sessions.data.length} sessions to local storage`);
-        
+
+        console.log(
+          `✅ Synced ${this.serverData.sessions.data.length} sessions to local storage`
+        );
+
         // Reload local data
         await this.loadIndexedDBData();
       }
-      
     } catch (error) {
       console.error('❌ Error syncing server data to local storage:', error);
     }
@@ -254,19 +284,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Debug method to load all data (both server and local storage)
   async loadAllDebugData() {
-    await Promise.all([
-      this.loadServerData(),
-      this.loadIndexedDBData()
-    ]);
+    await Promise.all([this.loadServerData(), this.loadIndexedDBData()]);
   }
 
   async checkPartyStatus() {
     this.isActingAsParty = this.partyService.isActingAsParty();
     this.currentPartyId = this.partyService.getCurrentPartyId();
-    
+
     if (this.isActingAsParty) {
       await this.loadPartyData();
-      
+
       // Subscribe to webhook events
       this.partyService.getWebhookEvents().subscribe(async (event) => {
         console.log('📡 Received webhook event:', event);
@@ -277,7 +304,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   async loadPartyData() {
     if (!this.isActingAsParty) return;
-    
+
     try {
       this.partySessions = await this.partyService.getPartySessions();
       // Note: We no longer store cryptographic shares in local storage for security
@@ -293,7 +320,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       console.log('🔄 Clearing all local data...');
       await this.indexedDBService.resetDatabase();
       console.log('✅ All local data cleared');
-      
+
       // Refresh the local data display
       await this.loadIndexedDBData();
     } catch (error) {
@@ -316,30 +343,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async addTestData() {
     try {
       console.log('🧪 Adding test session data...');
-      
+
       // Add a test session (metadata only - no cryptographic material)
       await this.indexedDBService.storeSession({
         sessionId: 'test-session-123',
-        status: 'active',
+        status: 'dkg_completed',
         operation: 'key_generation',
         metadata: {
           parties: 3,
           readyParties: 2,
           createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         },
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Note: We no longer store cryptographic shares in IndexedDB for security
       // Shares are generated fresh for each operation
 
       console.log('✅ Test session data added successfully');
-      
+
       // Refresh the local data display
       await this.loadIndexedDBData();
-      
     } catch (error) {
       console.error('❌ Failed to add test session data:', error);
     }
@@ -349,30 +375,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async loadIndexedDBData() {
     try {
       this.indexedDBError = undefined;
-      
+
       // First validate the database
       const isValid = await this.indexedDBService.validateDatabase();
-      
+
       if (!isValid) {
         console.log('⚠️ Database validation failed, resetting...');
         await this.indexedDBService.resetDatabase();
       }
-      
+
       // Use the IndexedDB service instead of direct access
       const debugData = await this.indexedDBService.debugViewAllData();
       this.indexedDBData = debugData;
-      
     } catch (error: any) {
       this.indexedDBError = `Error accessing local data: ${error.message}`;
       console.error('Local data access error:', error);
-      
+
       // If there's a version mismatch error, suggest resetting
-      if (error.message.includes('object stores was not found') || 
-          error.message.includes('transaction') ||
-          error.message.includes('upgrade')) {
+      if (
+        error.message.includes('object stores was not found') ||
+        error.message.includes('transaction') ||
+        error.message.includes('upgrade')
+      ) {
         this.indexedDBError = `Database version mismatch. Please reset the database.`;
       }
-      
+
       // If there's still an error, try resetting the database
       try {
         console.log('🔄 Attempting database reset due to error...');
@@ -391,23 +418,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async loadServerData() {
     try {
       this.serverError = undefined;
-      
+
       // Get sessions from server
       const sessionsResponse = await this.apiService.getSessions().toPromise();
-      
+
       this.serverData = {
         sessions: {
           count: sessionsResponse?.length || 0,
-          data: sessionsResponse || []
+          data: sessionsResponse || [],
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
-      
+
       console.log('🔍 Server Data:', this.serverData);
-      
     } catch (error: any) {
       this.serverError = `Error loading server data: ${error.message}`;
       console.error(this.serverError);
     }
   }
-} 
+}
