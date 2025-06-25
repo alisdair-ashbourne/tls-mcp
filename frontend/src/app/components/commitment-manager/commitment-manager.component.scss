@@ -1,0 +1,306 @@
+.commitment-manager-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+
+  .header-card {
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+
+    .title-icon {
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    mat-card-header {
+      color: inherit;
+    }
+
+    mat-card-title {
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    mat-card-subtitle {
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+
+  .content-container {
+    .no-commitments-card {
+      text-align: center;
+      padding: 48px 24px;
+
+      .no-commitments-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+
+        .large-icon {
+          font-size: 64px;
+          width: 64px;
+          height: 64px;
+          color: #ccc;
+        }
+
+        h2 {
+          margin: 0;
+          color: #666;
+        }
+
+        p {
+          margin: 0;
+          color: #999;
+        }
+      }
+    }
+
+    .groups-table-card {
+      margin-bottom: 24px;
+
+      .groups-table {
+        width: 100%;
+
+        .seed-cell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .seed-text {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+            background: #f5f5f5;
+            padding: 4px 8px;
+            border-radius: 4px;
+          }
+        }
+
+        .address-cell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .address-text {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+          }
+        }
+
+        .date-cell {
+          .operation-count {
+            color: #666;
+            font-size: 11px;
+          }
+        }
+
+        .operations-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          .commitment-count {
+            font-weight: 500;
+          }
+
+          .commitment-progress {
+            height: 4px;
+          }
+        }
+
+        .actions-cell {
+          display: flex;
+          gap: 4px;
+        }
+
+        .selected-row {
+          background-color: rgba(63, 81, 181, 0.1);
+        }
+
+        mat-row:hover {
+          background-color: rgba(0, 0, 0, 0.04);
+          cursor: pointer;
+        }
+      }
+    }
+
+    .group-details-card {
+      .tab-content {
+        padding: 24px 0;
+        min-height: 300px;
+
+        .overview-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 24px;
+
+          .overview-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+
+            label {
+              font-weight: 500;
+              color: #666;
+              font-size: 14px;
+            }
+
+            .value-with-copy {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+
+              code {
+                font-family: 'Roboto Mono', monospace;
+                font-size: 12px;
+                background: #f5f5f5;
+                padding: 8px;
+                border-radius: 4px;
+                word-break: break-all;
+                flex: 1;
+              }
+
+              span {
+                flex: 1;
+              }
+            }
+          }
+        }
+
+        .commitments-table {
+          width: 100%;
+          margin-top: 16px;
+        }
+
+        .create-session-form {
+          max-width: 500px;
+
+          h3 {
+            margin-bottom: 8px;
+            color: #333;
+          }
+
+          p {
+            margin-bottom: 24px;
+            color: #666;
+          }
+
+          mat-form-field {
+            width: 100%;
+            margin-bottom: 16px;
+          }
+
+          .session-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            margin: 24px 0;
+
+            mat-icon {
+              margin-top: 2px;
+            }
+
+            span {
+              font-size: 14px;
+              line-height: 1.4;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px;
+    gap: 16px;
+
+    p {
+      margin: 0;
+      color: #666;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .commitment-manager-container {
+    padding: 16px;
+
+    .content-container {
+      .groups-table-card {
+        .groups-table {
+          font-size: 12px;
+
+          .seed-cell .seed-text,
+          .address-cell .address-text {
+            font-size: 10px;
+          }
+        }
+      }
+
+      .group-details-card {
+        .tab-content {
+          padding: 16px 0;
+
+          .overview-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .create-session-form {
+            max-width: 100%;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Material theme customizations
+.mat-mdc-table {
+  .mat-mdc-header-row {
+    background-color: #f8f9fa;
+  }
+
+  .mat-mdc-header-cell {
+    font-weight: 600;
+    color: #495057;
+  }
+}
+
+.mat-mdc-chip.mat-mdc-standard-chip {
+  &.mat-primary {
+    background-color: #4caf50;
+    color: white;
+  }
+
+  &.mat-accent {
+    background-color: #ff9800;
+    color: white;
+  }
+
+  &.mat-warn {
+    background-color: #f44336;
+    color: white;
+  }
+}
+
+// Progress bar styling
+.mat-mdc-progress-bar {
+  .mdc-linear-progress__bar-inner {
+    border-color: #4caf50;
+  }
+
+  &.commitment-progress {
+    border-radius: 2px;
+    overflow: hidden;
+  }
+}

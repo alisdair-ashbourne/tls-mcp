@@ -1,0 +1,148 @@
+<div class="webrtc-session-container">
+  <h2>WebRTC MPC Session</h2>
+
+  <!-- Session Creation -->
+  <div class="session-creation" *ngIf="!currentSession">
+    <h3>Create WebRTC Session</h3>
+    <div class="form-group">
+      <label for="partyId">Your Party ID:</label>
+      <input
+        type="number"
+        id="partyId"
+        [(ngModel)]="localPartyId"
+        min="1"
+        max="10"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="sessionId">Session ID (optional):</label>
+      <input
+        type="text"
+        id="sessionId"
+        [(ngModel)]="sessionIdToJoin"
+        placeholder="Leave empty to create new"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="operation">Operation:</label>
+      <select id="operation" [(ngModel)]="operation">
+        <option value="threshold_signature">Threshold Signature</option>
+        <option value="distributed_key_generation">
+          Distributed Key Generation
+        </option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="threshold">Threshold:</label>
+      <input
+        type="number"
+        id="threshold"
+        [(ngModel)]="threshold"
+        min="2"
+        max="5"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="totalParties">Total Parties:</label>
+      <input
+        type="number"
+        id="totalParties"
+        [(ngModel)]="totalParties"
+        min="2"
+        max="5"
+      />
+    </div>
+
+    <button (click)="createOrJoinSession()" [disabled]="!canCreateSession">
+      {{ sessionIdToJoin ? 'Join Session' : 'Create Session' }}
+    </button>
+  </div>
+
+  <!-- Session Status -->
+  <div class="session-status" *ngIf="currentSession">
+    <h3>Session: {{ currentSession.sessionId }}</h3>
+    <div class="status-indicator">
+      <span class="status-badge" [class]="currentSession.connectionStatus">
+        {{ currentSession.connectionStatus }}
+      </span>
+    </div>
+
+    <div class="webrtc-room">
+      <strong>WebRTC Room:</strong> {{ currentSession.webrtcRoom }}
+    </div>
+
+    <!-- Peer Connections -->
+    <div class="peers-container">
+      <h4>
+        Connected Peers ({{ connectedPeersCount }}/{{
+          currentSession.peers.length
+        }})
+      </h4>
+      <div class="peer-list">
+        <div class="peer-item" *ngFor="let peer of currentSession.peers">
+          <div class="peer-info">
+            <span class="party-name">{{ peer.partyName }}</span>
+            <span class="party-id">(Party {{ peer.partyId }})</span>
+          </div>
+          <div class="connection-status">
+            <span class="status-badge" [class]="peer.connectionState">
+              {{ peer.connectionState }}
+            </span>
+            <span class="data-channel-status" *ngIf="peer.dataChannelState">
+              ({{ peer.dataChannelState }})
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MPC Protocol Messages -->
+    <div
+      class="mpc-messages"
+      *ngIf="currentSession.connectionStatus === 'connected'"
+    >
+      <h4>MPC Protocol Messages</h4>
+      <div class="message-log">
+        <div class="message-item" *ngFor="let message of mpcMessages">
+          <span class="timestamp">{{
+            message.timestamp | date: 'HH:mm:ss'
+          }}</span>
+          <span class="from">Party {{ message.from }}:</span>
+          <span class="event">{{ message.event }}</span>
+          <span class="payload" *ngIf="message.payload">{{
+            message.payload | json
+          }}</span>
+        </div>
+      </div>
+
+      <div class="message-input">
+        <input
+          type="text"
+          [(ngModel)]="newMessage"
+          placeholder="Type MPC protocol message..."
+        />
+        <button (click)="sendMPCMessage()" [disabled]="!newMessage">
+          Send
+        </button>
+      </div>
+    </div>
+
+    <button (click)="leaveSession()" class="leave-btn">Leave Session</button>
+  </div>
+
+  <!-- Connection Log -->
+  <div class="connection-log" *ngIf="connectionLog.length > 0">
+    <h4>Connection Log</h4>
+    <div class="log-entries">
+      <div class="log-entry" *ngFor="let entry of connectionLog">
+        <span class="timestamp">{{ entry.timestamp | date: 'HH:mm:ss' }}</span>
+        <span class="level" [class]="entry.level">{{ entry.level }}</span>
+        <span class="message">{{ entry.message }}</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,55 @@
+.sessions-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0;
+  color: #333;
+}
+
+.filters-card {
+  margin-bottom: 20px;
+}
+
+.mat-elevation-z8 {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+}
+
+.mat-column-actions {
+  width: 120px;
+  text-align: center;
+}
+
+.mat-column-sessionId {
+  width: 200px;
+}
+
+.mat-column-status {
+  width: 100px;
+}
+
+.mat-column-operation {
+  width: 150px;
+}
+
+.mat-column-createdAt {
+  width: 150px;
+}
+
+mat-paginator {
+  border-top: 1px solid #e0e0e0;
+}

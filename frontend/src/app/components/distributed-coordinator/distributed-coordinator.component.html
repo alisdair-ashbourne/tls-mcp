@@ -1,0 +1,378 @@
+<div class="distributed-coordinator-container">
+  <mat-card class="main-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon class="title-icon">hub</mat-icon>
+        Distributed Coordinator (WebRTC)
+      </mat-card-title>
+      <mat-card-subtitle>
+        Decentralized MPC coordination with WebRTC peer-to-peer communication
+        <button
+          mat-icon-button
+          class="help-button"
+          (click)="showBrowserSignalingHelp()"
+          matTooltip="Browser signaling help"
+        >
+          <mat-icon>help</mat-icon>
+        </button>
+      </mat-card-subtitle>
+    </mat-card-header>
+  </mat-card>
+
+  <!-- Signaling Server Management -->
+  <mat-card class="server-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>settings</mat-icon>
+        Signaling Server
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="server-controls">
+        <div class="server-status">
+          <div class="chip-container">
+            <mat-chip [color]="signalingStatus.isRunning ? 'accent' : 'warn'">
+              <mat-icon>{{
+                signalingStatus.isRunning ? 'check_circle' : 'error'
+              }}</mat-icon>
+              {{ signalingStatus.isRunning ? 'Running' : 'Stopped' }}
+            </mat-chip>
+          </div>
+
+          <div class="server-info" *ngIf="signalingStatus.isRunning">
+            <div class="chip-container">
+              <mat-chip>Method: {{ signalingStatus.method }}</mat-chip>
+              <mat-chip
+                >Clients: {{ signalingStatus.connectedClients }}</mat-chip
+              >
+              <mat-chip>Sessions: {{ signalingStatus.sessions.size }}</mat-chip>
+            </div>
+          </div>
+        </div>
+
+        <div class="server-actions">
+          <mat-form-field appearance="outline" class="port-field">
+            <mat-label>Port</mat-label>
+            <input
+              matInput
+              type="number"
+              [(ngModel)]="serverPort"
+              min="1024"
+              max="65535"
+              [disabled]="signalingStatus.isRunning"
+            />
+          </mat-form-field>
+
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="startSignaling()"
+            [disabled]="signalingStatus.isRunning"
+            class="action-button"
+          >
+            <mat-icon>play_arrow</mat-icon>
+            Start Signaling
+          </button>
+
+          <button
+            mat-raised-button
+            color="warn"
+            (click)="stopSignaling()"
+            [disabled]="!signalingStatus.isRunning"
+            class="action-button"
+          >
+            <mat-icon>stop</mat-icon>
+            Stop Signaling
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Sessions -->
+      <mat-expansion-panel
+        *ngIf="signalingStatus.isRunning && signalingStatus.sessions.size > 0"
+      >
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>group</mat-icon>
+            Active Sessions ({{ signalingStatus.sessions.size }})
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <mat-list>
+          <mat-list-item *ngFor="let sessionId of getActiveSessions()">
+            <mat-icon matListItemIcon>video_call</mat-icon>
+            <div matListItemTitle>{{ sessionId }}</div>
+            <div matListItemLine>
+              Parties: {{ getSessionParties(sessionId).join(', ') }}
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-expansion-panel>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Session Creation/Joining -->
+  <mat-card class="session-card" *ngIf="!isConnected">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>group_add</mat-icon>
+        Join Distributed Session
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Your Party ID</mat-label>
+          <input
+            matInput
+            type="number"
+            [(ngModel)]="partyId"
+            min="1"
+            max="10"
+          />
+          <mat-icon matSuffix>person</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Session ID</mat-label>
+          <input
+            matInput
+            [(ngModel)]="sessionId"
+            placeholder="Enter session ID to join"
+          />
+          <mat-icon matSuffix>link</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <div class="action-buttons">
+        <button
+          mat-raised-button
+          color="primary"
+          size="large"
+          (click)="joinSession()"
+          [disabled]="!signalingStatus.isRunning"
+          class="join-button"
+        >
+          <mat-icon>login</mat-icon>
+          Join Session
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Session Status -->
+  <mat-card class="session-card" *ngIf="isConnected">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>video_call</mat-icon>
+        Distributed Session: {{ sessionId }}
+      </mat-card-title>
+      <mat-card-subtitle>
+        <div class="chip-container">
+          <mat-chip color="accent">
+            <mat-icon>check_circle</mat-icon>
+            Connected
+          </mat-chip>
+          <mat-chip>Party {{ partyId }}</mat-chip>
+        </div>
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- Peer Connections -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>group</mat-icon>
+            Connected Peers ({{ peers.length + 1 }})
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <mat-list>
+          <mat-list-item>
+            <mat-icon matListItemIcon color="accent">check_circle</mat-icon>
+            <div matListItemTitle>
+              Party {{ partyId }}
+              <mat-chip color="primary">You</mat-chip>
+            </div>
+            <div matListItemLine>
+              <mat-chip color="accent">connected</mat-chip>
+            </div>
+          </mat-list-item>
+
+          <mat-list-item *ngFor="let peer of peers">
+            <mat-icon
+              matListItemIcon
+              [color]="peer.status === 'connected' ? 'accent' : 'warn'"
+            >
+              {{ peer.status === 'connected' ? 'check_circle' : 'error' }}
+            </mat-icon>
+            <div matListItemTitle>Party {{ peer.id }}</div>
+            <div matListItemLine>
+              <mat-chip
+                [color]="peer.status === 'connected' ? 'accent' : 'warn'"
+              >
+                {{ peer.status }}
+              </mat-chip>
+              <span class="last-seen" *ngIf="peer.lastSeen">
+                {{ peer.lastSeen | date: 'HH:mm:ss' }}
+              </span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-expansion-panel>
+
+      <!-- Consensus Operations -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>gavel</mat-icon>
+            Consensus Operations
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="operation-buttons">
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="proposeOperation('DKG Initiation')"
+            class="operation-btn"
+          >
+            <mat-icon>key</mat-icon>
+            Propose DKG Initiation
+          </button>
+          <button
+            mat-raised-button
+            color="accent"
+            (click)="proposeOperation('Party Response')"
+            class="operation-btn"
+          >
+            <mat-icon>send</mat-icon>
+            Propose Party Response
+          </button>
+          <button
+            mat-raised-button
+            color="warn"
+            (click)="proposeOperation('Session Completion')"
+            class="operation-btn"
+          >
+            <mat-icon>check_circle</mat-icon>
+            Propose Session Completion
+          </button>
+        </div>
+
+        <!-- Pending Proposals -->
+        <mat-expansion-panel *ngIf="pendingProposals.length > 0">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>pending</mat-icon>
+              Pending Proposals ({{ pendingProposals.length }})
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <mat-list>
+            <mat-list-item *ngFor="let proposal of pendingProposals">
+              <mat-icon matListItemIcon>description</mat-icon>
+              <div matListItemTitle>
+                {{ proposal.operation }}
+                <mat-chip>{{ proposal.id.substr(0, 8) }}</mat-chip>
+              </div>
+              <div matListItemLine>
+                Proposed by Party {{ proposal.proposer }}
+                <mat-chip
+                  [color]="
+                    getApprovalRate(proposal) >= 0.67 ? 'accent' : 'warn'
+                  "
+                >
+                  {{ getApprovalRate(proposal) * 100 | number: '1.0-0' }}%
+                  approve
+                </mat-chip>
+              </div>
+              <div matListItemMeta *ngIf="!proposal.votes.has(partyId)">
+                <button
+                  mat-icon-button
+                  color="primary"
+                  (click)="voteOnProposal(proposal.id, 'approve')"
+                  matTooltip="Approve"
+                >
+                  <mat-icon>thumb_up</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="warn"
+                  (click)="voteOnProposal(proposal.id, 'reject')"
+                  matTooltip="Reject"
+                >
+                  <mat-icon>thumb_down</mat-icon>
+                </button>
+              </div>
+              <div matListItemMeta *ngIf="proposal.votes.has(partyId)">
+                <mat-chip
+                  [color]="proposal.votes.get(partyId) ? 'accent' : 'warn'"
+                >
+                  You voted:
+                  {{ proposal.votes.get(partyId) ? 'Approve' : 'Reject' }}
+                </mat-chip>
+              </div>
+            </mat-list-item>
+          </mat-list>
+        </mat-expansion-panel>
+
+        <!-- Committed Operations -->
+        <mat-expansion-panel *ngIf="approvedProposals.length > 0">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>check_circle</mat-icon>
+              Committed Operations ({{ approvedProposals.length }})
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <mat-list>
+            <mat-list-item *ngFor="let proposal of approvedProposals">
+              <mat-icon matListItemIcon color="accent">done</mat-icon>
+              <div matListItemTitle>{{ proposal.operation }}</div>
+              <div matListItemLine>
+                <mat-chip>{{ proposal.id.substr(0, 8) }}</mat-chip>
+                {{ proposal.timestamp | date: 'HH:mm:ss' }}
+              </div>
+            </mat-list-item>
+          </mat-list>
+        </mat-expansion-panel>
+      </mat-expansion-panel>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <button mat-raised-button color="warn" (click)="disconnect()">
+        <mat-icon>exit_to_app</mat-icon>
+        Leave Session
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Connection Log -->
+  <mat-card class="log-card" *ngIf="logs.length > 0">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>history</mat-icon>
+        Connection Log
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <mat-list class="log-list">
+        <mat-list-item *ngFor="let entry of logs">
+          <mat-icon matListItemIcon [color]="getLogLevelColor(entry.level)">
+            {{ getLogLevelIcon(entry.level) }}
+          </mat-icon>
+          <div matListItemTitle>{{ entry.message }}</div>
+          <div matListItemLine>
+            {{ entry.timestamp | date: 'HH:mm:ss' }}
+            <span *ngIf="entry.partyId">(Party {{ entry.partyId }})</span>
+          </div>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+  </mat-card>
+</div>

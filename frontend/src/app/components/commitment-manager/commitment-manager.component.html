@@ -1,0 +1,225 @@
+<div class="commitment-manager-container">
+  <!-- Header -->
+  <mat-card class="header-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon class="title-icon">account_balance_wallet</mat-icon>
+        Commitment Manager
+      </mat-card-title>
+      <mat-card-subtitle>
+        Manage your TSS-MCP commitments across sessions
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-actions align="end">
+      <button mat-button (click)="refreshGroups()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button mat-button (click)="createNewCommitmentGroup()">
+        <mat-icon>add</mat-icon>
+        New Commitment
+      </button>
+      <button mat-button color="warn" (click)="clearAllCommitments()">
+        <mat-icon>delete_forever</mat-icon>
+        Clear All
+      </button>
+      <button mat-button color="accent" (click)="onCreateTestCommitment()">
+        <mat-icon>bug_report</mat-icon>
+        Test Commitment
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <div class="content-container" *ngIf="!loading">
+    <!-- No commitments state -->
+    <mat-card *ngIf="commitmentGroups.length === 0" class="no-commitments-card">
+      <mat-card-content>
+        <div class="no-commitments-content">
+          <mat-icon class="large-icon">folder_open</mat-icon>
+          <h2>No Commitments Found</h2>
+          <p>You haven't created any TSS-MCP commitments yet.</p>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="createNewCommitmentGroup()"
+          >
+            <mat-icon>add</mat-icon>
+            Create Your First Commitment
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Commitment groups basic list -->
+    <mat-card *ngIf="commitmentGroups.length > 0" class="groups-table-card">
+      <mat-card-header>
+        <mat-card-title
+          >Commitment Groups ({{ commitmentGroups.length }})</mat-card-title
+        >
+        <mat-card-subtitle
+          >Your stored cryptographic commitments</mat-card-subtitle
+        >
+      </mat-card-header>
+      <mat-card-content>
+        <div
+          *ngFor="let group of commitmentGroups; let i = index"
+          class="commitment-group-item"
+        >
+          <mat-card class="group-card">
+            <mat-card-header>
+              <mat-card-title>{{
+                getShortSeed(group.sharedSeed)
+              }}</mat-card-title>
+              <mat-card-subtitle>
+                <mat-chip [color]="getGroupStatusColor(group)" selected>
+                  {{ getGroupStatus(group) }}
+                </mat-chip>
+              </mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="group-info">
+                <p>
+                  <strong>Wallet Address:</strong>
+                  {{ getShortAddress(group.walletAddress) }}
+                </p>
+                <p>
+                  <strong>Parties:</strong>
+                  {{ group.participatingParties.join(', ') }}
+                </p>
+                <p>
+                  <strong>Last Used:</strong> {{ formatDate(group.lastUsed) }}
+                </p>
+                <p><strong>Operations:</strong> {{ group.operationsCount }}</p>
+                <p>
+                  <strong>Commitments:</strong> {{ group.commitments.length }}
+                </p>
+                <p>
+                  <strong>Can Reconstruct:</strong>
+                  {{ group.canReconstruct ? 'Yes' : 'No' }}
+                </p>
+              </div>
+            </mat-card-content>
+            <mat-card-actions>
+              <button mat-button (click)="selectGroup(group)">
+                View Details
+              </button>
+              <button
+                mat-button
+                (click)="deriveWalletAddress(group)"
+                *ngIf="!group.walletAddress && group.canReconstruct"
+              >
+                Derive Address
+              </button>
+              <button
+                mat-button
+                (click)="copyToClipboard(group.walletAddress, 'Wallet address')"
+                *ngIf="group.walletAddress"
+              >
+                Copy Address
+              </button>
+              <button
+                mat-button
+                color="accent"
+                (click)="onAddPartiesToExistingGroup(group)"
+                *ngIf="!group.canReconstruct"
+              >
+                Add Parties
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Selected group details -->
+    <mat-card *ngIf="selectedGroup" class="group-details-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>info</mat-icon>
+          Commitment Group Details
+        </mat-card-title>
+        <mat-card-subtitle>{{
+          getShortSeed(selectedGroup.sharedSeed)
+        }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="details-content">
+          <h3>Overview</h3>
+          <div class="overview-grid">
+            <p><strong>Shared Seed:</strong> {{ selectedGroup.sharedSeed }}</p>
+            <p>
+              <strong>Wallet Address:</strong>
+              {{ getFullAddress(selectedGroup.walletAddress) }}
+            </p>
+            <p><strong>Status:</strong> {{ getGroupStatus(selectedGroup) }}</p>
+            <p>
+              <strong>Can Reconstruct:</strong>
+              {{ selectedGroup.canReconstruct ? 'Yes' : 'No' }}
+            </p>
+            <p>
+              <strong>Participating Parties:</strong>
+              {{ selectedGroup.participatingParties.join(', ') }}
+            </p>
+            <p>
+              <strong>Operations Count:</strong>
+              {{ selectedGroup.operationsCount }}
+            </p>
+            <p>
+              <strong>Last Used:</strong>
+              {{ formatDate(selectedGroup.lastUsed) }}
+            </p>
+          </div>
+
+          <h3>Create New Session</h3>
+          <div class="create-session-form" *ngIf="selectedGroup.canReconstruct">
+            <mat-form-field appearance="outline">
+              <mat-label>Session ID</mat-label>
+              <input
+                matInput
+                [(ngModel)]="newSessionId"
+                placeholder="Enter unique session ID"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Operation Type</mat-label>
+              <mat-select [(ngModel)]="selectedOperation">
+                <mat-option *ngFor="let op of operations" [value]="op.value">
+                  {{ op.label }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="form-actions">
+              <button mat-button (click)="resetSessionForm()">Reset</button>
+              <button
+                mat-raised-button
+                color="primary"
+                (click)="createSessionFromCommitments(selectedGroup)"
+                [disabled]="!newSessionId.trim() || loading"
+              >
+                <mat-icon>add</mat-icon>
+                Create Session
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="!selectedGroup.canReconstruct">
+            <p>
+              Insufficient shares to create new sessions or perform operations.
+            </p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Loading spinner -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-progress-spinner
+      mode="indeterminate"
+      diameter="60"
+    ></mat-progress-spinner>
+    <p>Processing commitments...</p>
+  </div>
+</div>

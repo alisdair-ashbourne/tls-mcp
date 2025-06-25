@@ -1,0 +1,271 @@
+<div class="signature-container">
+  <div class="header">
+    <h1>Create Threshold Signature</h1>
+    <p>Generate a threshold signature using an existing TLS-MCP session</p>
+  </div>
+
+  <!-- Session Selection -->
+  <mat-card class="session-selection-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>list</mat-icon>
+        Select Session
+      </mat-card-title>
+      <mat-card-subtitle
+        >Choose an active session for signature creation</mat-card-subtitle
+      >
+    </mat-card-header>
+    <mat-card-content>
+      <div *ngIf="loadingSessions" class="loading">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <p>Loading sessions...</p>
+      </div>
+
+      <div
+        *ngIf="!loadingSessions && activeSessions.length === 0"
+        class="empty-state"
+      >
+        <mat-icon>inbox</mat-icon>
+        <p>
+          No active sessions found. Create a session first to generate
+          signatures.
+        </p>
+        <button
+          mat-raised-button
+          color="primary"
+          routerLink="/server-coordinator/key-generation"
+        >
+          <mat-icon>vpn_key</mat-icon>
+          Create New Session
+        </button>
+      </div>
+
+      <div
+        *ngIf="!loadingSessions && activeSessions.length > 0"
+        class="sessions-grid"
+      >
+        <div
+          *ngFor="let session of activeSessions"
+          class="session-card"
+          [class.selected]="selectedSessionId === session.sessionId"
+          (click)="selectSession(session.sessionId)"
+        >
+          <div class="session-header">
+            <mat-icon>vpn_key</mat-icon>
+            <div class="session-info">
+              <div class="session-id">
+                {{ session.sessionId.substring(0, 8) }}...
+              </div>
+              <div class="session-operation">
+                {{ session.operation | titlecase }}
+              </div>
+            </div>
+            <mat-icon
+              *ngIf="selectedSessionId === session.sessionId"
+              class="selected-icon"
+              >check_circle</mat-icon
+            >
+          </div>
+          <div class="session-details">
+            <div class="parties-info">
+              <span class="parties-count"
+                >{{ getReadyPartiesCount(session) }}/{{
+                  getTotalPartiesCount(session)
+                }}
+                parties ready</span
+              >
+              <mat-progress-bar
+                mode="determinate"
+                [value]="
+                  (getReadyPartiesCount(session) /
+                    getTotalPartiesCount(session)) *
+                  100
+                "
+                [class]="
+                  getProgressColor(
+                    getReadyPartiesCount(session),
+                    getTotalPartiesCount(session)
+                  )
+                "
+              >
+              </mat-progress-bar>
+            </div>
+            <div class="session-meta">
+              <span class="created-date">{{
+                session.createdAt | date: 'short'
+              }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Signature Form -->
+  <mat-card *ngIf="selectedSessionId" class="signature-form-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>edit</mat-icon>
+        Create Signature
+      </mat-card-title>
+      <mat-card-subtitle
+        >Generate a threshold signature for the selected
+        session</mat-card-subtitle
+      >
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="signatureForm" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Message to Sign</mat-label>
+            <textarea
+              matInput
+              formControlName="message"
+              placeholder="Enter the message you want to sign..."
+              rows="4"
+              required
+            >
+            </textarea>
+            <mat-error
+              *ngIf="signatureForm.get('message')?.hasError('required')"
+            >
+              Message is required
+            </mat-error>
+            <mat-hint
+              >This message will be signed by all participating
+              parties</mat-hint
+            >
+          </mat-form-field>
+
+          <div class="signature-info">
+            <h4>Signature Information</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">Session ID:</span>
+                <span class="value">{{ selectedSessionId }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">Parties Required:</span>
+                <span class="value">{{
+                  getTotalPartiesCount(getSelectedSession()!) || 0
+                }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">Ready Parties:</span>
+                <span class="value">{{
+                  getReadyPartiesCount(getSelectedSession()!) || 0
+                }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">Threshold:</span>
+                <span class="value">3/3 (All parties required)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button
+            type="submit"
+            mat-raised-button
+            color="primary"
+            [disabled]="!signatureForm.valid || creatingSignature"
+          >
+            <mat-icon>edit</mat-icon>
+            {{
+              creatingSignature ? 'Creating Signature...' : 'Create Signature'
+            }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Signature Result -->
+  <mat-card *ngIf="signatureResult" class="result-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon class="success-icon">check_circle</mat-icon>
+        Signature Created Successfully!
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="result-content">
+        <div class="result-section">
+          <h4>Signature Details</h4>
+          <div class="result-grid">
+            <div class="result-item">
+              <span class="label">Message:</span>
+              <span class="value">{{ signatureResult.message }}</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Message Hash:</span>
+              <code class="value">{{ signatureResult.messageHash }}</code>
+            </div>
+            <div class="result-item">
+              <span class="label">Status:</span>
+              <span class="value">{{ signatureResult.status }}</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Session ID:</span>
+              <span class="value">{{ signatureResult.sessionId }}</span>
+            </div>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="result-section">
+          <h4>Verification</h4>
+          <div class="verification-info">
+            <p>
+              This signature was created using Shamir's Secret Sharing with all
+              three parties participating:
+            </p>
+            <ul>
+              <li>
+                Message hash: <code>{{ signatureResult.messageHash }}</code>
+              </li>
+              <li>Signature components combined from all parties</li>
+              <li>Threshold verification: 3/3 parties participated</li>
+              <li>Signature is cryptographically secure</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="resetForm()">Create Another Signature</button>
+      <button
+        mat-raised-button
+        color="primary"
+        [routerLink]="[
+          '/server-coordinator/sessions',
+          signatureResult.sessionId,
+        ]"
+      >
+        View Session
+      </button>
+      <button mat-raised-button color="accent" (click)="copySignature()">
+        <mat-icon>content_copy</mat-icon>
+        Copy Signature
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Error Display -->
+  <mat-card *ngIf="error" class="error-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon class="error-icon">error</mat-icon>
+        Error
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p>{{ error }}</p>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="clearError()">Dismiss</button>
+    </mat-card-actions>
+  </mat-card>
+</div>

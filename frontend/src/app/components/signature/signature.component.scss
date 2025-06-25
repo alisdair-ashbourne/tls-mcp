@@ -1,0 +1,254 @@
+.signature-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.header p {
+  color: #666;
+  font-size: 16px;
+}
+
+.session-selection-card,
+.signature-form-card,
+.result-card,
+.error-card {
+  margin-bottom: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-state mat-icon {
+  font-size: 64px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.session-card {
+  border: 2px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fafafa;
+}
+
+.session-card:hover {
+  border-color: #1976d2;
+  background: #f0f8ff;
+}
+
+.session-card.selected {
+  border-color: #4caf50;
+  background: #f1f8e9;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-id {
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+}
+
+.session-operation {
+  font-size: 12px;
+  color: #666;
+}
+
+.selected-icon {
+  color: #4caf50;
+}
+
+.session-details {
+  margin-top: 12px;
+}
+
+.parties-info {
+  margin-bottom: 8px;
+}
+
+.parties-count {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.session-meta {
+  font-size: 12px;
+  color: #999;
+}
+
+.form-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.signature-info {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.signature-info h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-weight: 500;
+  color: #666;
+}
+
+.value {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.form-actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.result-content {
+  padding: 16px 0;
+}
+
+.result-section {
+  margin-bottom: 24px;
+}
+
+.result-section h4 {
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.result-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-item .label {
+  font-weight: 500;
+  color: #666;
+}
+
+.result-item .value {
+  font-family: 'Courier New', monospace;
+  background: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.verification-info {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.verification-info p {
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.verification-info ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.verification-info li {
+  margin-bottom: 4px;
+  color: #666;
+}
+
+.verification-info code {
+  background: #e0e0e0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.success-icon {
+  color: #4caf50;
+  margin-right: 8px;
+}
+
+.error-icon {
+  color: #f44336;
+  margin-right: 8px;
+}
+
+mat-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+mat-card-header {
+  margin-bottom: 16px;
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

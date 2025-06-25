@@ -1,0 +1,243 @@
+.webrtc-session-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h2 {
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+.session-creation,
+.session-status {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+button {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+}
+
+button:hover {
+  background: #2980b9;
+}
+
+button:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.status-indicator {
+  margin: 15px 0;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.disconnected {
+  background: #e74c3c;
+  color: white;
+}
+
+.status-badge.connecting {
+  background: #f39c12;
+  color: white;
+}
+
+.status-badge.connected {
+  background: #27ae60;
+  color: white;
+}
+
+.status-badge.failed {
+  background: #c0392b;
+  color: white;
+}
+
+.webrtc-room {
+  background: #e8f4fd;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  font-family: monospace;
+}
+
+.peers-container {
+  margin: 20px 0;
+}
+
+.peer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.peer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.peer-info {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.party-name {
+  font-weight: 600;
+}
+
+.party-id {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.data-channel-status {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.mpc-messages {
+  margin: 20px 0;
+}
+
+.message-log {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.message-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.timestamp {
+  color: #6c757d;
+}
+
+.from {
+  color: #3498db;
+  font-weight: 600;
+}
+
+.event {
+  color: #2c3e50;
+}
+
+.payload {
+  color: #7f8c8d;
+}
+
+.message-input {
+  display: flex;
+  gap: 10px;
+}
+
+.message-input input {
+  flex: 1;
+}
+
+.leave-btn {
+  background: #e74c3c;
+}
+
+.leave-btn:hover {
+  background: #c0392b;
+}
+
+.connection-log {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #e9ecef;
+}
+
+.log-entries {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.log-entry .level {
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.log-entry .level.info {
+  color: #3498db;
+}
+
+.log-entry .level.warn {
+  color: #f39c12;
+}
+
+.log-entry .level.error {
+  color: #e74c3c;
+}
+
+.log-entry .level.success {
+  color: #27ae60;
+}
